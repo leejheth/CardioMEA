@@ -1,10 +1,53 @@
-# cardiomea
+# CardioMEA
 
 ## Overview
 
-This is your new Kedro project, which was generated using `Kedro 0.18.7`.
+An open-source platform to process and analyze the electrophysiology data of cardiomyocytes.
+This platform processes data that are collected using microelectrode arrays (MEAs), which contains tens to thousands of electrodes.
 
-Take a look at the [Kedro documentation](https://docs.kedro.org) to get started.
+
+## Key features
+* Modular structure that makes the code easily understandable and modifiable.
+* Parallel computation of large-volume datasets (from up to 1024 read-out channels) to speed up the processing.
+* Visualization of data processing and analysis pipelines ([Kedro-Viz](https://github.com/kedro-org/kedro-viz))
+
+## How to setup 
+
+Prerequisite: Conda
+
+Clone the repository to your working directory.
+```
+git clone git@github.com:leejheth/CardioMEA.git
+```
+
+Go to the directory.
+```
+cd CardioMEA
+```
+
+Set up the environment. This will create a new conda environment and install all dependencies in it.
+```
+make setup
+```
+
+Activate the environment.
+```
+conda activate cardio-env
+```
+
+## How to install additional packages in the environment
+
+Add names (and versions) of packages you need to install in `src/requirements.in`.
+
+Compile dependencies.
+```
+pip-compile src/requirements.in -o src/requirements.txt
+```
+
+To install them, run:
+```
+python -m pip install -r src/requirements.txt
+```
 
 ## Rules and guidelines
 
@@ -15,15 +58,7 @@ In order to get the best out of the template:
 * Don't commit data to your repository
 * Don't commit any credentials or your local configuration to your repository. Keep all your credentials and local configuration in `conf/local/`
 
-## How to install dependencies
 
-Declare any dependencies in `src/requirements.txt` for `pip` installation and `src/environment.yml` for `conda` installation.
-
-To install them, run:
-
-```
-pip install -r src/requirements.txt
-```
 
 ## How to run your Kedro pipeline
 
