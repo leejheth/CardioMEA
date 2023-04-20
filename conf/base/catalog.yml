@@ -1,4 +1,28 @@
-# Here you can define all your data sets by using simple YAML syntax.
-#
-# Documentation for this file format can be found in "The Data Catalog"
-# Link: https://docs.kedro.org/en/stable/data/data_catalog.html
+data_catalog:
+  type: pandas.CSVDataSet
+  filepath: data/01_raw/catalog.csv
+  load_args:
+    sep: ';'
+    
+data_catalog_full:
+  type: pandas.CSVDataSet
+  filepath: data/01_raw/catalog_full.csv
+  load_args:
+    sep: ','
+  save_args:
+    index: False
+
+counter:
+  type: MemoryDataSet
+
+key_test:
+  type: MemoryDataSet
+
+# scooters:
+#   type: pandas.SQLTableDataSet
+#   credentials: scooters_credentials
+#   table_name: scooters
+#   load_args:
+#     columns: [name, gear]
+#   save_args:
+#     if_exists: replace

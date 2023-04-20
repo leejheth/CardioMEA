@@ -4,12 +4,18 @@
 #
 #    pip-compile --output-file=src/requirements.txt src/requirements.in
 #
+aiofiles==22.1.0
+    # via kedro-viz
 antlr4-python3-runtime==4.9.3
     # via omegaconf
 anyconfig==0.10.1
     # via kedro
 anyio==3.6.2
-    # via jupyter-server
+    # via
+    #   jupyter-server
+    #   starlette
+    #   watchfiles
+    #   watchgod
 argon2-cffi==21.3.0
     # via
     #   jupyter-server
@@ -38,10 +44,14 @@ black==22.12.0
     # via -r src/requirements.in
 bleach==6.0.0
     # via nbconvert
+blosc2==2.0.0
+    # via tables
 build==0.10.0
     # via pip-tools
 cachetools==5.3.0
-    # via kedro
+    # via
+    #   google-auth
+    #   kedro
 certifi==2022.12.7
     # via requests
 cffi==1.15.1
@@ -56,12 +66,17 @@ click==8.1.3
     #   cookiecutter
     #   kedro
     #   pip-tools
+    #   uvicorn
 comm==0.1.3
     # via ipykernel
 cookiecutter==2.1.1
     # via kedro
 coverage[toml]==7.2.2
     # via pytest-cov
+cython==0.29.34
+    # via tables
+db-dtypes==1.1.1
+    # via pandas-gbq
 debugpy==1.6.6
     # via ipykernel
 decorator==5.1.1
@@ -70,10 +85,14 @@ defusedxml==0.7.1
     # via nbconvert
 dynaconf==3.1.12
     # via kedro
+et-xmlfile==1.1.0
+    # via openpyxl
 exceptiongroup==1.1.1
     # via pytest
 executing==1.2.0
     # via stack-data
+fastapi==0.89.1
+    # via kedro-viz
 fastjsonschema==2.16.3
     # via nbformat
 flake8==4.0.1
@@ -84,6 +103,54 @@ gitdb==4.0.10
     # via gitpython
 gitpython==3.1.31
     # via kedro
+google-api-core[grpc]==2.11.0
+    # via
+    #   google-cloud-bigquery
+    #   google-cloud-bigquery-storage
+    #   google-cloud-core
+    #   pandas-gbq
+google-auth==2.17.3
+    # via
+    #   google-api-core
+    #   google-auth-oauthlib
+    #   google-cloud-core
+    #   pandas-gbq
+    #   pydata-google-auth
+google-auth-oauthlib==1.0.0
+    # via
+    #   pandas-gbq
+    #   pydata-google-auth
+google-cloud-bigquery==3.9.0
+    # via pandas-gbq
+google-cloud-bigquery-storage==2.19.1
+    # via pandas-gbq
+google-cloud-core==2.3.2
+    # via google-cloud-bigquery
+google-crc32c==1.5.0
+    # via google-resumable-media
+google-resumable-media==2.4.1
+    # via google-cloud-bigquery
+googleapis-common-protos==1.59.0
+    # via
+    #   google-api-core
+    #   grpcio-status
+graphql-core==3.2.3
+    # via strawberry-graphql
+greenlet==2.0.2
+    # via sqlalchemy
+grpcio==1.53.0
+    # via
+    #   google-api-core
+    #   google-cloud-bigquery
+    #   grpcio-status
+grpcio-status==1.53.0
+    # via google-api-core
+h11==0.14.0
+    # via uvicorn
+h5py==3.8.0
+    # via -r src/requirements.in
+httptools==0.5.0
+    # via uvicorn
 idna==3.4
     # via
     #   anyio
@@ -113,6 +180,7 @@ ipython==8.12.0 ; python_version >= "3.8"
     #   ipywidgets
     #   jupyter-console
     #   jupyterlab
+    #   kedro-viz
 ipython-genutils==0.2.0
     # via
     #   nbclassic
@@ -138,6 +206,8 @@ jinja2-time==0.2.0
     # via cookiecutter
 jmespath==0.10.0
     # via kedro
+joblib==1.2.0
+    # via scikit-learn
 json5==0.9.11
     # via jupyterlab-server
 jsonschema==4.17.3
@@ -186,12 +256,17 @@ jupyterlab-server==2.15.2
     #   jupyterlab
 jupyterlab-widgets==3.0.7
     # via ipywidgets
-kedro==0.18.7
+kedro[pandas]==0.18.7
     # via
     #   -r src/requirements.in
     #   kedro-telemetry
+    #   kedro-viz
 kedro-telemetry==0.2.3
     # via -r src/requirements.in
+kedro-viz==6.0.1
+    # via -r src/requirements.in
+lxml==4.9.2
+    # via kedro
 markdown-it-py==2.2.0
     # via rich
 markupsafe==2.1.2
@@ -210,6 +285,8 @@ mistune==2.0.5
     # via nbconvert
 more-itertools==9.1.0
     # via kedro
+msgpack==1.0.5
+    # via blosc2
 mypy-extensions==1.0.0
     # via black
 nbclassic==0.5.4
@@ -239,28 +316,60 @@ nest-asyncio==1.5.6
     #   ipykernel
     #   nbclassic
     #   notebook
+networkx==3.1
+    # via kedro-viz
 notebook==6.5.3
     # via
     #   jupyter
     #   jupyterlab
 notebook-shim==0.2.2
     # via nbclassic
+numexpr==2.8.4
+    # via tables
 numpy==1.24.2
-    # via -r src/requirements.in
+    # via
+    #   -r src/requirements.in
+    #   db-dtypes
+    #   h5py
+    #   numexpr
+    #   pandas
+    #   pandas-gbq
+    #   pyarrow
+    #   scikit-learn
+    #   scipy
+    #   tables
+oauthlib==3.2.2
+    # via requests-oauthlib
 omegaconf==2.3.0
     # via kedro
+openpyxl==3.1.2
+    # via kedro
+orjson==3.8.10
+    # via kedro-viz
 packaging==23.0
     # via
     #   build
+    #   db-dtypes
+    #   google-cloud-bigquery
     #   ipykernel
     #   jupyter-server
     #   jupyterlab
     #   jupyterlab-server
     #   nbconvert
+    #   plotly
     #   pytest
     #   pytoolconfig
     #   qtconsole
     #   qtpy
+    #   tables
+pandas==1.5.3
+    # via
+    #   db-dtypes
+    #   kedro
+    #   kedro-viz
+    #   pandas-gbq
+pandas-gbq==0.17.9
+    # via kedro
 pandocfilters==1.5.0
     # via nbconvert
 parso==0.8.3
@@ -280,6 +389,8 @@ platformdirs==3.2.0
     #   black
     #   jupyter-core
     #   pytoolconfig
+plotly==5.14.1
+    # via kedro-viz
 pluggy==1.0.0
     # via
     #   kedro
@@ -293,18 +404,49 @@ prompt-toolkit==3.0.38
     # via
     #   ipython
     #   jupyter-console
+proto-plus==1.22.2
+    # via
+    #   google-cloud-bigquery
+    #   google-cloud-bigquery-storage
+protobuf==4.22.3
+    # via
+    #   google-api-core
+    #   google-cloud-bigquery
+    #   google-cloud-bigquery-storage
+    #   googleapis-common-protos
+    #   grpcio-status
+    #   proto-plus
 psutil==5.9.4
     # via ipykernel
+psycopg2-binary==2.9.6
+    # via -r src/requirements.in
 ptyprocess==0.7.0
     # via
     #   pexpect
     #   terminado
 pure-eval==0.2.2
     # via stack-data
+py-cpuinfo==9.0.0
+    # via tables
+pyarrow==6.0.1
+    # via
+    #   db-dtypes
+    #   kedro
+    #   pandas-gbq
+pyasn1==0.4.8
+    # via
+    #   pyasn1-modules
+    #   rsa
+pyasn1-modules==0.2.8
+    # via google-auth
 pycodestyle==2.8.0
     # via flake8
 pycparser==2.21
     # via cffi
+pydantic==1.10.7
+    # via fastapi
+pydata-google-auth==1.7.0
+    # via pandas-gbq
 pyflakes==2.4.0
     # via flake8
 pygments==2.14.0
@@ -330,16 +472,24 @@ pytest-mock==1.13.0
 python-dateutil==2.8.2
     # via
     #   arrow
+    #   google-cloud-bigquery
     #   jupyter-client
+    #   pandas
+    #   strawberry-graphql
+python-dotenv==1.0.0
+    # via uvicorn
 python-slugify==8.0.1
     # via cookiecutter
 pytoolconfig[global]==1.2.5
     # via rope
+pytz==2023.3
+    # via pandas
 pyyaml==6.0
     # via
     #   cookiecutter
     #   kedro
     #   omegaconf
+    #   uvicorn
 pyzmq==25.0.2
     # via
     #   ipykernel
@@ -356,12 +506,27 @@ qtpy==2.3.1
 requests==2.28.2
     # via
     #   cookiecutter
+    #   google-api-core
+    #   google-cloud-bigquery
     #   jupyterlab-server
     #   kedro-telemetry
+    #   requests-oauthlib
+requests-oauthlib==1.3.1
+    # via google-auth-oauthlib
 rich==13.3.3
     # via kedro
 rope==1.7.0
     # via kedro
+rsa==4.9
+    # via google-auth
+scikit-learn==1.2.2
+    # via -r src/requirements.in
+scipy==1.10.1
+    # via
+    #   -r src/requirements.in
+    #   scikit-learn
+semver==2.13.0
+    # via kedro-viz
 send2trash==1.8.0
     # via
     #   jupyter-server
@@ -371,6 +536,7 @@ six==1.16.0
     # via
     #   asttokens
     #   bleach
+    #   google-auth
     #   python-dateutil
 smmap==5.0.0
     # via gitdb
@@ -378,8 +544,20 @@ sniffio==1.3.0
     # via anyio
 soupsieve==2.4
     # via beautifulsoup4
+sqlalchemy==1.4.47
+    # via
+    #   kedro
+    #   kedro-viz
 stack-data==0.6.2
     # via ipython
+starlette==0.22.0
+    # via fastapi
+strawberry-graphql==0.171.1
+    # via kedro-viz
+tables==3.8.0
+    # via kedro
+tenacity==8.2.2
+    # via plotly
 terminado==0.17.1
     # via
     #   jupyter-server
@@ -387,6 +565,8 @@ terminado==0.17.1
     #   notebook
 text-unidecode==1.3
     # via python-slugify
+threadpoolctl==3.1.0
+    # via scikit-learn
 tinycss2==1.2.1
     # via nbconvert
 toml==0.10.2
@@ -432,8 +612,19 @@ typing-extensions==4.5.0
     # via
     #   black
     #   ipython
+    #   pydantic
+    #   starlette
+    #   strawberry-graphql
 urllib3==1.26.15
     # via requests
+uvicorn[standard]==0.20.0
+    # via kedro-viz
+uvloop==0.17.0
+    # via uvicorn
+watchfiles==0.19.0
+    # via uvicorn
+watchgod==0.8.2
+    # via kedro-viz
 wcwidth==0.2.6
     # via prompt-toolkit
 webencodings==0.5.1
@@ -442,6 +633,8 @@ webencodings==0.5.1
     #   tinycss2
 websocket-client==1.5.1
     # via jupyter-server
+websockets==11.0.1
+    # via uvicorn
 wheel==0.40.0
     # via pip-tools
 widgetsnbextension==4.0.7
