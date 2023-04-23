@@ -4,4 +4,8 @@
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.18.7/kedro_project_setup/configuration.html#parameters
 
-test: 10
+signals:
+  start_frame: 0
+  length: 600000
+  factor: 5.5
+  min_peak_dist: 4000

@@ -14,8 +14,19 @@ data_catalog_full:
 
 counter:
   type: MemoryDataSet
+index:
+  type: MemoryDataSet
 
-key_test:
+rec_info:
+  type: MemoryDataSet
+file_path_full:
+  type: MemoryDataSet
+
+signals:
+  type: MemoryDataSet
+electrode_info:
+  type: MemoryDataSet  
+gain:
   type: MemoryDataSet
 
 # scooters:

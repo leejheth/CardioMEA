@@ -8,10 +8,12 @@ import glob
 import numpy as np
 import pandas as pd
 import psycopg2
+import statistics as st
+import warnings
 import yaml
 from scipy import signal
 from scipy.signal import find_peaks
-from scipy import stats as st
+from joblib import Parallel, delayed
 
 def list_rec_files(data_catalog,base_directory,ext):
     """List all recording files in the directory.
@@ -34,9 +36,13 @@ def list_rec_files(data_catalog,base_directory,ext):
         rec_files = glob.glob(base_directory+data_catalog.loc[row,'file_path']+"/*"+ext)
         
         # create a new dataframe that contains both existing and new data (full file directory)
-        tmp = pd.concat([data_catalog.loc[[row]]]*len(rec_files), ignore_index=True)
-        tmp["file_path_full"] = rec_files
-        data_catalog_full = data_catalog_full.merge(tmp, how='outer')
+        try:
+            tmp = pd.concat([data_catalog.loc[[row]]]*len(rec_files), ignore_index=True)
+            tmp["file_path_full"] = rec_files
+            data_catalog_full = data_catalog_full.merge(tmp, how='outer')
+        except Exception as e:
+            print(e)
+            print(f"No recording files are found in {base_directory+data_catalog.loc[row,'file_path']}")
 
     print(f"A total of {len(data_catalog_full)} recording files are found.")
 
@@ -51,10 +57,133 @@ def write_yaml_file(counter):
         yaml.dump(data, f)
 
 
+def parse_rec_file_info(data_catalog_full, index):
+    """Parse the information of a recording file.
 
-def peakseek(data, minpeakdist=4000, minpeakh=1000):
-    # This is approx. 6 times faster than find_peaks function
-    # data format: 1D 
+    Args:
+        data_catalog_full (pandas.DataFrame): Data catalog containing directory and other (names of cell lines, compound, etc.) information of recording files, as well as the full directory of the recording files.
+        index (int): Index of the recording file to be parsed.
+
+    Returns:
+        cell_line (str): Name of the cell line (if provided).
+        compound (str): Name of the compound (if provided).
+        file_path (str): Directory where the recording file was found.
+        note (str): Note about the recording (if provided).
+        file_path_full (str): Full directory of the recording file.
+    """
+    cell_line = data_catalog_full.loc[index,'cell_line']
+    compound = data_catalog_full.loc[index,'compound']
+    file_path = data_catalog_full.loc[index,'file_path']
+    note = data_catalog_full.loc[index,'note']
+    file_path_full = data_catalog_full.loc[index,'file_path_full']
+    print(f"Processing recording file: {file_path_full} ...")
+
+    rec_info = dict([
+        ("cell_line", cell_line),
+        ("compound", compound),
+        ("file_path", file_path),
+        ("note", note),
+    ])
+
+    return rec_info, file_path_full
+
+
+def extract_data(file_path_full, start_frame, length):
+    """Extract data from a recording file.
+
+    Args:
+        file_path_full (str): Full directory of the recording file.
+        start_frame (int): Start frame of the recording.
+        length (int): Length of the recording.
+
+    Returns:
+        data (dict): Dictionary containing the extracted data.
+        signals (numpy.ndarray): Extracted signals.
+        electrodes_info (dict): Dictionary containing the channel information (electrode ID, X and Y locations, number of electrodes used for recording).
+        gain (int): Gain of the recording.
+    """
+    obj = h5py.File(file_path_full, mode='r')
+
+    # get channel information
+    mapping = obj.get('mapping')
+    channels = np.array(mapping['channel'])
+    electrodes = np.array(mapping['electrode'])
+    routed_idxs = np.where(electrodes > -1)[0] # remove unused channels
+    channel_ids = list(channels[routed_idxs])
+    electrode_ids = list(electrodes[routed_idxs])
+    num_channels = len(electrode_ids)
+    num_frames = len(obj.get('sig')[0,:])
+    x_locs = mapping['x']
+    y_locs = mapping['y']
+
+    electrodes_info = dict([
+        ("electrode_ids", electrode_ids),
+        ("x_locs", x_locs),
+        ("y_locs", y_locs),
+        ("num_channels", num_channels)
+    ])
+
+    # get lsb value
+    gain = (obj['settings']['gain'][0]).astype(int)
+    if 'lsb' in obj['settings']:
+        lsb = obj['settings']['lsb'][0] * 1e6
+    else:
+        lsb = 3.3 / (1024 * gain) * 1e6
+
+    
+    # get raw voltage traces from all recording channels
+    if start_frame < (num_frames-1):
+        if (start_frame+length) > num_frames:
+            warnings.warn("The specified time frame exceeds the data length. Signals will be extracted until end-of-file.")
+        signals = (obj.get('sig')[np.array(channel_ids),int(start_frame):int(start_frame+length)] * lsb).astype('float32')
+    else:
+        warnings.warn(f"The start frame exceeds the length of data. Signals will be extracted from the start of the recording until MIN({length}-th frame, end-of-file) instead.")
+        signals = (obj.get('sig')[np.array(channel_ids),0:min(length,num_frames)] * lsb).astype('float32')
+
+    return signals, electrodes_info, gain
+
+
+def get_R_timestamps(signals,mult_factor,min_peak_dist):
+    """Identify R peaks in the signals.
+    
+    Args:
+        signals (numpy.ndarray): Extracted signals.
+        mult_factor (float): Multiplication factor for the threshold.
+        min_peak_dist (int): Minimum distance between two R peaks.
+        
+    Returns:
+        sync_timestamps (list): List of timestamps of R peaks that are synchronous.
+        sync_channelIDs (list): List of channel IDs of R peaks that are synchronous.    
+    """
+    # build a butterworth filter of order: 3, bandwidth: 100-2000Hz, bandpass
+    b, a = signal.butter(3,[100*2/2e4,2000*2/2e4],btype='band')
+    # apply a digital filter
+    filtered = signal.filtfilt(b, a, signals) 
+
+    channelIDs = [ch for ch in range(len(signals))]
+    # Parallel processing using all available CPUs
+    res = Parallel(n_jobs=-1, backend='multiprocessing')([delayed(_R_timestamps)(filtered[ch],mult_factor,min_peak_dist) for ch in channelIDs])
+    n_Rpeaks, r_timestamps = map(list,zip(*res))
+
+    # identify synchronous beats
+    sync_beats = st.mode(n_Rpeaks)
+    # indices of channels where beats (R peaks) are synchronous
+    ind_sync_channels = [ind for ind,peaks in enumerate(n_Rpeaks) if peaks==sync_beats]
+    sync_timestamps = [r_timestamps[i] for i in ind_sync_channels]
+    sync_channelIDs = [channelIDs[i] for i in ind_sync_channels]
+
+    return sync_timestamps, sync_channelIDs
+
+
+def _R_timestamps(signal,mult_factor,min_peak_dist):
+    """Identify R peaks in a single channel."""
+    thr = mult_factor*np.std(signal)
+    r_locs, _ = _peakseek(signal, minpeakdist=min_peak_dist, minpeakh=thr)
+
+    return len(r_locs), r_locs
+
+def _peakseek(data, minpeakdist=4000, minpeakh=1000):
+    """Find peaks in a 1D array."""
     locs = np.where((data[1:-1] >= data[0:-2]) & (data[1:-1] >= data[2:]))[0] + 1
     
     if minpeakh:
@@ -75,17 +204,6 @@ def peakseek(data, minpeakdist=4000, minpeakh=1000):
     pks = data[locs]
     
     return locs, pks
-
-def get_R_timestamps(rec_file,test): #,synchronous_channels):
-    # import hdf5 file
-    # f = h5py.File(raw_data, 'r')
-    # get data information
-    # gain = (f['gain'][0]).astype(int)
-    # print(gain)
-
-    print(test+3)
-
-    return 3, 4
 
 
 def upload_to_sql_server(file_path):

@@ -3,11 +3,13 @@ This is a boilerplate pipeline 'features'
 generated using Kedro 0.18.7
 """
 
+import yaml
 from kedro.pipeline import Pipeline, node, pipeline
-# from kedro.pipeline.modular_pipeline import pipeline as mpipeline
 from cardiomea.pipelines.features.nodes import (
     list_rec_files,
     write_yaml_file,
+    parse_rec_file_info,
+    extract_data,
     get_R_timestamps
 )
 
@@ -42,12 +44,39 @@ def list_rec_files_pipeline(**kwargs) -> Pipeline:
 def extract_features_pipeline(**kwargs) -> Pipeline:    
     return pipeline([
         node(
-            func=get_R_timestamps,
+            func=parse_rec_file_info,
             inputs=[
                 "data_catalog_full", 
-                "key_test",
-                # "params:synchronous_channels",
-                # "params:test"
+                "index",
+            ],
+            outputs=[
+                "rec_info",
+                "file_path_full",
+            ],
+            tags=["directory","files"],
+            name="parse_rec_file_info",
+        ),
+        node(
+            func=extract_data,
+            inputs=[
+                "file_path_full", 
+                "params:signals.start_frame",
+                "params:signals.length",
+            ],
+            outputs=[
+                "signals",
+                "electrode_info",
+                "gain",
+            ],
+            tags=["extract","data","signals"],
+            name="extract_data",
+        ),
+        node(
+            func=get_R_timestamps,
+            inputs=[
+                "signals", 
+                "params:signals.factor",
+                "params:signals.min_peak_dist",
             ],
             outputs=[
                 "R_timestamps",
@@ -60,27 +89,36 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
 
 
 
-def create_modular_pipeline(**kwargs) -> Pipeline:   
-    p_list = Pipeline([])
+def create_auto_pipeline(**kwargs) -> Pipeline:   
+    # Read the number of files to process
+    with open("conf/base/file_count.yml", "r") as f:
+        content = yaml.safe_load(f)
+    n_files = content['n_files']
 
-    for i in range(5):
+    p_list = Pipeline([])
+    for i in range(n_files):
         pipeline_key = f'pipeline_{i}'
 
-        def parse_rec_files(num):
+        def pass_value(num):
             def generate_num():
-                return num*10
+                return num
             return generate_num
 
         p_list += pipeline([
             node(
-                    parse_rec_files(i),
+                    func=pass_value(i),
                     inputs=None,
                     outputs=pipeline_key,
                 )
         ])
         p_list += pipeline(
             pipe=extract_features_pipeline(),
-            inputs={'data_catalog_full': 'data_catalog_full','key_test': pipeline_key},
+            inputs={'data_catalog_full': 'data_catalog_full','index': pipeline_key},
+            parameters={
+                'signals.start_frame': 'signals.start_frame',
+                'signals.length': 'signals.length',
+                'signals.factor': 'signals.factor',
+                'signals.min_peak_dist': 'signals.min_peak_dist'},
             outputs={'R_timestamps': f'R_timestamps_{i}', 'channelIDs': f'channelIDs_{i}'},
             namespace=pipeline_key,
         )
