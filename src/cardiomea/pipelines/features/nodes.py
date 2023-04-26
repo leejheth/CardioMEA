@@ -143,13 +143,14 @@ def extract_data(file_path_full, start_frame, length):
     return signals, electrodes_info, gain
 
 
-def get_R_timestamps(signals,mult_factor,min_peak_dist):
+def get_R_timestamps(signals,mult_factor,min_peak_dist,n_CPUs):
     """Identify R peaks in the signals.
     
     Args:
         signals (numpy.ndarray): Extracted signals.
         mult_factor (float): Multiplication factor for the threshold.
         min_peak_dist (int): Minimum distance between two R peaks.
+        n_CPUs (int): Number of CPUs to be used for parallel processing.
         
     Returns:
         sync_timestamps (list): List of timestamps of R peaks that are synchronous.
@@ -162,7 +163,7 @@ def get_R_timestamps(signals,mult_factor,min_peak_dist):
 
     channelIDs = [ch for ch in range(len(signals))]
     # Parallel processing using all available CPUs
-    res = Parallel(n_jobs=-1, backend='multiprocessing')([delayed(_R_timestamps)(filtered[ch],mult_factor,min_peak_dist) for ch in channelIDs])
+    res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_R_timestamps)(filtered[ch],mult_factor,min_peak_dist) for ch in channelIDs])
     n_Rpeaks, r_timestamps = map(list,zip(*res))
 
     # identify synchronous beats
@@ -175,14 +176,14 @@ def get_R_timestamps(signals,mult_factor,min_peak_dist):
     return sync_timestamps, sync_channelIDs
 
 
-def _R_timestamps(signal,mult_factor,min_peak_dist):
+def _R_timestamps(signal_single,mult_factor,min_peak_dist):
     """Identify R peaks in a single channel."""
-    thr = mult_factor*np.std(signal)
-    r_locs, _ = _peakseek(signal, minpeakdist=min_peak_dist, minpeakh=thr)
-
+    thr = mult_factor*np.std(signal_single)
+    r_locs, _ = _peakseek(signal_single, minpeakdist=min_peak_dist, minpeakh=thr)
     return len(r_locs), r_locs
 
-def _peakseek(data, minpeakdist=4000, minpeakh=1000):
+
+def _peakseek(data, minpeakdist, minpeakh):
     """Find peaks in a 1D array."""
     locs = np.where((data[1:-1] >= data[0:-2]) & (data[1:-1] >= data[2:]))[0] + 1
     
@@ -204,6 +205,72 @@ def _peakseek(data, minpeakdist=4000, minpeakh=1000):
     pks = data[locs]
     
     return locs, pks
+
+
+def get_FP_waves(signals,sync_timestamps,sync_channelIDs,before_R,after_R,n_CPUs):
+    """Extract FP waves from the signals.
+    
+    Args:
+        signals (numpy.ndarray): Raw signals.
+        sync_timestamps (list): List of timestamps of R peaks that are synchronous.
+        sync_channelIDs (list): List of channel IDs of R peaks that are synchronous.
+        before_R (int): Number of frames before R peak.
+        after_R (int): Number of frames after R peak.
+        n_CPUs (int): Number of CPUs to use for parallel processing.
+        
+    Returns:
+        FP_waves (list): List of FP waves.
+    """
+    # Parallel processing using all available CPUs
+    FP_waves = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave)(signals[ch],sync_timestamps[ch],before_R,after_R) for ch in sync_channelIDs])
+    
+    return FP_waves
+
+
+def _FP_wave(signal_single,timestamps,before_R,after_R):
+    """Get an average FP wave from a single channel."""
+    waves = [signal_single[peak_loc-before_R:peak_loc+after_R] for peak_loc in timestamps if (peak_loc-before_R)>0 and (peak_loc+after_R)<=len(signal_single)] 
+    return list(np.mean(np.vstack(waves),axis=0))
+
+
+def get_FP_wave_features(FP_waves,before_R,n_CPUs):
+    """Extract features from FP waves.
+    
+    Args:
+        FP_waves (list): List of FP waves.
+        n_CPUs (int): Number of CPUs to use for parallel processing.
+        
+    Returns:
+        features (list): List of features.
+    """
+    # Parallel processing using all available CPUs
+    res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave_features)(wave,before_R) for wave in FP_waves])
+    FPDs, R_amplitudes, R_widths = map(list(zip(*res)))
+
+    return FPDs, R_amplitudes, R_widths
+
+
+def _FP_wave_features(wave,before_R):
+    """Extract features from a single FP wave."""
+    # get R peak location
+    R_peak = before_R
+
+    # get R peak-to-peak amplitude
+    R_amplitude = wave[before_R]-np.min(wave)
+    
+    # get an estimate of R spike width (duration of deviation from baseline)
+    b, a = signal.butter(3,[100*2/2e4,2000*2/2e4],btype='band')
+    R_filtered = signal.filtfilt(b, a, wave)
+    R_width = np.where(abs(R_filtered)>50)[0][-1]-np.where(abs(R_filtered)>50)[0][0]
+
+    # get FPD
+    b, a = signal.butter(3,[3*2/2e4,100*2/2e4],btype='band')
+    T_filtered = signal.filtfilt(b, a, wave)
+    Tpeak, _ = _peakseek(T_filtered[before_R+1000:after_R], minpeakdist=10000, minpeakh=30)
+    Tpeak+before_R+1000
+    
+    
+    return R_amplitude, R_width, FPD
 
 
 def upload_to_sql_server(file_path):

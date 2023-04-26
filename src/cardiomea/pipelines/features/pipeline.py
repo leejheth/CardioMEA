@@ -10,7 +10,9 @@ from cardiomea.pipelines.features.nodes import (
     write_yaml_file,
     parse_rec_file_info,
     extract_data,
-    get_R_timestamps
+    get_R_timestamps,
+    get_FP_waves,
+    get_FP_wave_features
 )
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -77,6 +79,7 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "signals", 
                 "params:signals.factor",
                 "params:signals.min_peak_dist",
+                "params:parallel.n_jobs"
             ],
             outputs=[
                 "R_timestamps",
@@ -84,6 +87,37 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
             ],
             tags=["features","R_timestamps","channelIDs"],
             name="get_R_timestamps",
+        ),
+        node(
+            func=get_FP_waves,
+            inputs=[
+                "signals", 
+                "R_timestamps",
+                "channelIDs",
+                "params:signals.before_R",
+                "params:signals.after_R",
+                "params:parallel.n_jobs"
+            ],
+            outputs=[
+                "FP_waves",
+            ],
+            tags=["waveforms"],
+            name="get_FP_waves",
+        ),
+        node(
+            func=get_FP_wave_features,
+            inputs=[
+                "FP_waves", 
+                "params:signals.before_R",
+                "params:parallel.n_jobs"
+            ],
+            outputs=[
+                "R_amplitudes",
+                "R_widths",
+                "FPDs",
+            ],
+            tags=["features","R_spikes","waveforms"],
+            name="get_FP_wave_features",
         )
     ])
 
@@ -118,7 +152,11 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
                 'signals.start_frame': 'signals.start_frame',
                 'signals.length': 'signals.length',
                 'signals.factor': 'signals.factor',
-                'signals.min_peak_dist': 'signals.min_peak_dist'},
+                'signals.min_peak_dist': 'signals.min_peak_dist',
+                'parallel.n_jobs': 'parallel.n_jobs',
+                'signals.before_R': 'signals.before_R',
+                'signals.after_R': 'signals.after_R',
+            },
             outputs={'R_timestamps': f'R_timestamps_{i}', 'channelIDs': f'channelIDs_{i}'},
             namespace=pipeline_key,
         )
