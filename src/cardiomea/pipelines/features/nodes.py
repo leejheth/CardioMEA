@@ -11,9 +11,13 @@ import psycopg2
 import statistics as st
 import warnings
 import yaml
+import hrvanalysis as hrva
+from collections import defaultdict
 from scipy import signal
 from scipy.signal import find_peaks
 from joblib import Parallel, delayed
+from lmfit import Model, Parameters
+from sympy import sym
 
 def list_rec_files(data_catalog,base_directory,ext):
     """List all recording files in the directory.
@@ -65,10 +69,11 @@ def parse_rec_file_info(data_catalog_full, index):
         index (int): Index of the recording file to be parsed.
 
     Returns:
-        cell_line (str): Name of the cell line (if provided).
-        compound (str): Name of the compound (if provided).
-        file_path (str): Directory where the recording file was found.
-        note (str): Note about the recording (if provided).
+        rec_info (dict): Dictionary containing the following information of the recording file:
+            - cell_line (str): Name of the cell line (if provided).
+            - compound (str): Name of the compound (if provided).
+            - file_path (str): Directory where the recording file was found.
+            - note (str): Note about the recording (if provided).
         file_path_full (str): Full directory of the recording file.
     """
     cell_line = data_catalog_full.loc[index,'cell_line']
@@ -88,16 +93,17 @@ def parse_rec_file_info(data_catalog_full, index):
     return rec_info, file_path_full
 
 
-def extract_data(file_path_full, start_frame, length):
+def extract_data(file_path_full, start_frame, length, s_freq):
     """Extract data from a recording file.
 
     Args:
         file_path_full (str): Full directory of the recording file.
         start_frame (int): Start frame of the recording.
         length (int): Length of the recording.
+        s_freq (int): sampling frequency of the recording.
+        num_frames/s_freq (float): duration of recording in seconds.
 
     Returns:
-        data (dict): Dictionary containing the extracted data.
         signals (numpy.ndarray): Extracted signals.
         electrodes_info (dict): Dictionary containing the channel information (electrode ID, X and Y locations, number of electrodes used for recording).
         gain (int): Gain of the recording.
@@ -113,8 +119,8 @@ def extract_data(file_path_full, start_frame, length):
     electrode_ids = list(electrodes[routed_idxs])
     num_channels = len(electrode_ids)
     num_frames = len(obj.get('sig')[0,:])
-    x_locs = mapping['x']
-    y_locs = mapping['y']
+    x_locs = list(np.array(mapping['x'][routed_idxs]))
+    y_locs = list(np.array(mapping['y'][routed_idxs]))
 
     electrodes_info = dict([
         ("electrode_ids", electrode_ids),
@@ -140,24 +146,27 @@ def extract_data(file_path_full, start_frame, length):
         warnings.warn(f"The start frame exceeds the length of data. Signals will be extracted from the start of the recording until MIN({length}-th frame, end-of-file) instead.")
         signals = (obj.get('sig')[np.array(channel_ids),0:min(length,num_frames)] * lsb).astype('float32')
 
-    return signals, electrodes_info, gain
+    return signals, electrodes_info, gain, num_frames/s_freq
 
 
-def get_R_timestamps(signals,mult_factor,min_peak_dist,n_CPUs):
+def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,n_CPUs,s_freq):
     """Identify R peaks in the signals.
     
     Args:
         signals (numpy.ndarray): Extracted signals.
+        electrodes_info (dict): Dictionary containing the channel information (electrode ID, X and Y locations, number of electrodes used for recording).
         mult_factor (float): Multiplication factor for the threshold.
         min_peak_dist (int): Minimum distance between two R peaks.
         n_CPUs (int): Number of CPUs to be used for parallel processing.
+        s_freq (int): Sampling frequency of the recording.
         
     Returns:
         sync_timestamps (list): List of timestamps of R peaks that are synchronous.
-        sync_channelIDs (list): List of channel IDs of R peaks that are synchronous.    
+        sync_channelIDs (list): List of channel IDs of R peaks that are synchronous.  
+        electrodes_info_updated (dict): Updated dictionary containing the channel information (contains only channels that captured synchronous beatings).  
     """
     # build a butterworth filter of order: 3, bandwidth: 100-2000Hz, bandpass
-    b, a = signal.butter(3,[100*2/2e4,2000*2/2e4],btype='band')
+    b, a = signal.butter(3,[100*2/s_freq,2000*2/s_freq],btype='band')
     # apply a digital filter
     filtered = signal.filtfilt(b, a, signals) 
 
@@ -173,13 +182,22 @@ def get_R_timestamps(signals,mult_factor,min_peak_dist,n_CPUs):
     sync_timestamps = [r_timestamps[i] for i in ind_sync_channels]
     sync_channelIDs = [channelIDs[i] for i in ind_sync_channels]
 
-    return sync_timestamps, sync_channelIDs
+    # update electrodes info (updated data contains only channels that captured synchronous beatings)
+    electrodes_info_updated = dict([
+        ("electrode_ids", [electrodes_info['electrode_ids'][i] for i in ind_sync_channels]),
+        ("x_locs", [electrodes_info['x_locs'][i] for i in ind_sync_channels]),
+        ("y_locs", [electrodes_info['y_locs'][i] for i in ind_sync_channels]),
+        ("num_channels", len(ind_sync_channels))
+    ])
+
+    return sync_timestamps, sync_channelIDs, electrodes_info_updated
 
 
 def _R_timestamps(signal_single,mult_factor,min_peak_dist):
     """Identify R peaks in a single channel."""
     thr = mult_factor*np.std(signal_single)
     r_locs, _ = _peakseek(signal_single, minpeakdist=min_peak_dist, minpeakh=thr)
+
     return len(r_locs), r_locs
 
 
@@ -204,7 +222,22 @@ def _peakseek(data, minpeakdist, minpeakh):
             locs = np.delete(list(locs), multi_xx)
     pks = data[locs]
     
-    return locs, pks
+    return list(locs), pks
+  
+
+def get_active_area(electrodes_info, sync_channelIDs):
+    """Calculate the percentage of electrodes which recorded synchronous beats.
+    
+    Args:
+        electrodes_info (dict): Dictionary containing information about electrodes.
+        sync_channelIDs (list): List of channel IDs of R peaks that are synchronous.
+
+    Returns:
+        active_area (float): Percentage of electrodes which recorded synchronous beats.
+    """
+    active_area = 100 * len(sync_channelIDs) / electrodes_info["num_channels"]
+    
+    return active_area
 
 
 def get_FP_waves(signals,sync_timestamps,sync_channelIDs,before_R,after_R,n_CPUs):
@@ -233,47 +266,186 @@ def _FP_wave(signal_single,timestamps,before_R,after_R):
     return list(np.mean(np.vstack(waves),axis=0))
 
 
-def get_FP_wave_features(FP_waves,before_R,n_CPUs):
+def get_FP_wave_features(FP_waves,before_R,T_from,T_to,n_CPUs,s_freq):
     """Extract features from FP waves.
     
     Args:
         FP_waves (list): List of FP waves.
+        before_R (int): Number of frames before R peak.
+        T_from (int): Start of the interval to find T peak (number of frames from R peak).
+        T_to (int): End of the interval to find T peak (number of frames from R peak).
         n_CPUs (int): Number of CPUs to use for parallel processing.
+        s_freq (int): Sampling frequency of the signals.
         
     Returns:
-        features (list): List of features.
+        R_amplitudes (list): List of R peak-to-peak amplitudes.
+        R_widths (list): List of estimated R spike widths.
+        FPDs (list): List of field potential durations.
     """
     # Parallel processing using all available CPUs
-    res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave_features)(wave,before_R) for wave in FP_waves])
-    FPDs, R_amplitudes, R_widths = map(list(zip(*res)))
+    res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave_features)(wave,before_R,T_from,T_to,s_freq) for wave in FP_waves])
+    R_amplitudes, R_widths, FPDs = map(list(zip(*res)))
 
-    return FPDs, R_amplitudes, R_widths
+    return R_amplitudes, R_widths, FPDs
 
 
-def _FP_wave_features(wave,before_R):
+def _FP_wave_features(wave,before_R,T_from,T_to,s_freq):
     """Extract features from a single FP wave."""
-    # get R peak location
-    R_peak = before_R
-
     # get R peak-to-peak amplitude
     R_amplitude = wave[before_R]-np.min(wave)
     
     # get an estimate of R spike width (duration of deviation from baseline)
-    b, a = signal.butter(3,[100*2/2e4,2000*2/2e4],btype='band')
+    b, a = signal.butter(3,[100*2/s_freq,2000*2/s_freq],btype='band')
     R_filtered = signal.filtfilt(b, a, wave)
     R_width = np.where(abs(R_filtered)>50)[0][-1]-np.where(abs(R_filtered)>50)[0][0]
 
     # get FPD
-    b, a = signal.butter(3,[3*2/2e4,100*2/2e4],btype='band')
+    b, a = signal.butter(3,[3*2/s_freq,100*2/s_freq],btype='band')
     T_filtered = signal.filtfilt(b, a, wave)
-    Tpeak, _ = _peakseek(T_filtered[before_R+1000:after_R], minpeakdist=10000, minpeakh=30)
-    Tpeak+before_R+1000
-    
-    
+    Tpeak, _ = _peakseek(T_filtered[before_R+T_from:before_R+T_to], minpeakdist=10000, minpeakh=30)
+    FPD = Tpeak+T_from
+        
     return R_amplitude, R_width, FPD
 
 
-def upload_to_sql_server(file_path):
+def get_HRV_features(sync_timestamps,n_CPUs):
+    """Extract heart rate variability (HRV) features.
+    
+    Args:
+        sync_timestamps (list): List of timestamps of R peaks that are synchronous.
+        n_CPUs (int): Number of CPUs to use for parallel processing.
+
+    Returns:
+        HRV_features (dict): Dictionary of HRV features.
+    """
+    # Parallel processing using all available CPUs
+    res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_hrv_features)(timestamps) for timestamps in sync_timestamps])
+
+    # Create a defaultdict to store mean values
+    HRV_features = defaultdict(int)
+
+    for d in res:
+        for key, value in d.items():
+            try:
+                # averages values across channels
+                HRV_features[key] += value/len(res)
+            except TypeError:
+                HRV_features[key] = None
+
+    return dict(HRV_features)
+    # return pd.DataFrame.from_dict(dict(HRV_features), orient='index').T
+
+
+def _hrv_features(timestamps):
+    """Extract HRV features from a single channel."""
+    RR_intervals = np.diff(timestamps)
+    
+    # get time domain features
+    time_domain_features = hrva.get_time_domain_features(RR_intervals)
+    
+    # get geometrical features
+    geometrical_features = hrva.get_geometrical_features(RR_intervals)
+    
+    # get frequency domain features
+    frequency_domain_features = hrva.get_frequency_domain_features(RR_intervals)
+    
+    # get csi and cvi features
+    csi_cvi_features = hrva.get_csi_cvi_features(RR_intervals)
+    
+    # get poincare plot features
+    poincare_plot_features = hrva.get_poincare_plot_features(RR_intervals)
+    
+    return {**time_domain_features, **geometrical_features, **frequency_domain_features, **csi_cvi_features, **poincare_plot_features}
+
+
+def get_conduction_speed(sync_timestamps,electrodes_info_updated,s_freq):
+    """Estimate conduction speed.
+
+    Fit a cone equation to the data and estimate conduction speed at each electrode using partial derivatives.  
+    Algorithms are adapted from Bayly et al. "stimation of Conduction Velocity Vector Fields from Epicardial Mapping Data" (1998) 
+    and also from Cardio PyMEA https://github.com/csdunhamUC/cardio_pymea.git with modifications.
+    
+    Args:
+        sync_timestamps (list): List of timestamps of R peaks that are synchronous.
+        electrodes_info_updated (dict): Updated electrode information.
+        s_freq (int): Sampling frequency of the signals.
+    
+    Returns:
+        speed_list (list): list of conduction speed estimated in each beat.
+        n_beats (int): Number of beats.
+    """
+    beat_clusters = np.vstack(sync_timestamps)
+    n_beats = len(sync_timestamps)
+    x_locs = electrodes_info_updated['x_loc']
+    y_locs = electrodes_info_updated['y_loc']
+
+    def cone_surface(x, y, x_p, y_p, a, b, c):
+        return (a*(x-x_p)**2 + b*(y-y_p)**2)**0.5 + c
+
+    model = Model(cone_surface, independent_vars=['x', 'y'])
+
+    speed_list = []
+    for beat in range(n_beats):
+        # activation time in seconds
+        t_data = (beat_clusters[:,beat]-min(beat_clusters[:,beat]))/s_freq 
+
+        # define parameters and limits
+        params = Parameters()
+        params.add('x_p', value=0.2, min=-0.1, max=0.5)
+        params.add('y_p', value=0.1, min=-0.2, max=0.4)
+        params.add('a', value=1, min=1e-4)
+        params.add('b', value=1, min=1e-4)
+        params.add('c', value=1)
+
+        # x, y locations in cm units
+        x_locs_cm = np.array(x_locs)*1e-4
+        y_locs_cm = np.array(y_locs)*1e-4
+
+        # fit model to the data
+        result = model.fit(t_data, params, x=x_locs_cm, y=y_locs_cm)
+
+        # get estimated parameter values
+        x_p, y_p, a, b, c = [i.value for i in result.params.values()]
+
+        x, y = sym.symbols("x,y", real=True)
+        t_xy = (a*(x-x_p)**2 + b*(y-y_p)**2)**0.5 + c
+
+        # calculate partial derivatives
+        t_partial_x_eq = sym.lambdify([x, y], t_xy.diff(x), "numpy")
+        t_partial_y_eq = sym.lambdify([x, y], t_xy.diff(y), "numpy")
+
+        T_partial_x = t_partial_x_eq(x_locs_cm,y_locs_cm) 
+        T_partial_y = t_partial_y_eq(x_locs_cm,y_locs_cm)
+
+        # calculate dx/dT and dy/dT (conduction velocity)
+        velocity_x = T_partial_x / (T_partial_x**2 + T_partial_y**2)
+        velocity_y = T_partial_y / (T_partial_x**2 + T_partial_y**2)
+
+        # calculate magnitude of the vector (conduction speed)
+        speed = np.sqrt(velocity_x**2 + velocity_y**2)
+
+        speed_list.append(speed)
+    
+    return speed_list, n_beats
+
+
+def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_info_updated,active_area,R_amplitudes,R_widths,FPDs,HRV_features,conduction_speed,n_beats):
+    """Upload extracted feature data to SQL server.
+    
+    Args:
+        rec_info (dict): Recording information.
+        file_path_full (str): Full path to the recording file.
+        gain (int): Gain of the recording.
+        rec_duration (float): Duration of the recording in seconds.
+        electrodes_info_updated (dict): Updated electrode information.
+        active_area (float): Active area of the electrode.
+        R_amplitudes (list): List of R peak amplitudes.
+        R_widths (list): List of R peak widths.
+        FPDs (list): List of FPDs (field potential durations).
+        HRV_features (dict): Dictionary of HRV features.
+        conduction_speed (list): List of conduction speed estimated in each beat.
+        n_beats (int): Number of beats.
+    """
     # get credentials data from text file
     with open('conf/local/postgresql.txt', 'r') as f:
         sql_credentials = f.read().splitlines()

@@ -5,7 +5,12 @@
 # Link: https://docs.kedro.org/en/0.18.7/kedro_project_setup/configuration.html#parameters
 
 signals:
+  s_freq: 20000
   start_frame: 0
   length: 600000
   factor: 5.5
   min_peak_dist: 4000
+  before_R: 1000
+  after_R: 10000
+  T_from: 1500
+  T_to: 6500

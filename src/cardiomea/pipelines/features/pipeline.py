@@ -11,8 +11,12 @@ from cardiomea.pipelines.features.nodes import (
     parse_rec_file_info,
     extract_data,
     get_R_timestamps,
+    get_active_area,
     get_FP_waves,
-    get_FP_wave_features
+    get_FP_wave_features,
+    get_HRV_features,
+    get_conduction_speed,
+    upload_to_sql_server,
 )
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -64,11 +68,13 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "file_path_full", 
                 "params:signals.start_frame",
                 "params:signals.length",
+                "params:signals.s_freq",
             ],
             outputs=[
                 "signals",
                 "electrode_info",
                 "gain",
+                "rec_duration",
             ],
             tags=["extract","data","signals"],
             name="extract_data",
@@ -77,16 +83,31 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
             func=get_R_timestamps,
             inputs=[
                 "signals", 
+                "electrodes_info",
                 "params:signals.factor",
                 "params:signals.min_peak_dist",
-                "params:parallel.n_jobs"
+                "params:parallel.n_jobs",
+                "params:signals.s_freq",
             ],
             outputs=[
                 "R_timestamps",
-                "channelIDs"
+                "channelIDs",
+                "electrodes_info_updated"
             ],
-            tags=["features","R_timestamps","channelIDs"],
+            tags=["R_timestamps","channelIDs"],
             name="get_R_timestamps",
+        ),        
+        node(
+            func=get_active_area,
+            inputs=[
+                "electrode_info", 
+                "channelIDs",
+            ],
+            outputs=[
+                "active_area",
+            ],
+            tags=["activity","network"],
+            name="get_active_area",
         ),
         node(
             func=get_FP_waves,
@@ -109,18 +130,65 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
             inputs=[
                 "FP_waves", 
                 "params:signals.before_R",
-                "params:parallel.n_jobs"
+                "params:signals.T_from",
+                "params:signals.T_to",
+                "params:parallel.n_jobs",
+                "params:signals.s_freq",
             ],
             outputs=[
                 "R_amplitudes",
                 "R_widths",
                 "FPDs",
             ],
-            tags=["features","R_spikes","waveforms"],
+            tags=["R_spikes","waveforms"],
             name="get_FP_wave_features",
-        )
+        ),
+        node(
+            func=get_HRV_features,
+            inputs=[
+                "R_timestamps", 
+            ],
+            outputs=[
+                "HRV_features",
+            ],
+            tags=["HRV"],
+            name="get_HRV_features",
+        ),
+        node(
+            func=get_conduction_speed,
+            inputs=[
+                "R_timestamps", 
+                "electrodes_info_updated",
+                "params:signals.s_freq",
+            ],
+            outputs=[
+                "conduction_speed",
+                "n_beats",
+            ],
+            tags=["conduction","propagation","R_spikes"],
+            name="get_conduction_speed",
+        ),
+        node(
+            func=upload_to_sql_server,
+            inputs=[
+                "rec_info",
+                "file_path_full",
+                "gain",
+                "rec_duration",
+                "electrodes_info_updated",
+                "active_area",
+                "R_amplitudes",
+                "R_widths",
+                "FPDs",
+                "HRV_features",
+                "conduction_speed",
+                "n_beats",
+            ],
+            outputs=None,
+            tags=["upload","data","SQL"],
+            name="upload_to_sql_server",
+        ),
     ])
-
 
 
 def create_auto_pipeline(**kwargs) -> Pipeline:   
@@ -156,6 +224,9 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
                 'parallel.n_jobs': 'parallel.n_jobs',
                 'signals.before_R': 'signals.before_R',
                 'signals.after_R': 'signals.after_R',
+                'signals.T_from': 'signals.T_from',
+                'signals.T_to': 'signals.T_to',
+                'signals.s_freq': 'signals.s_freq',
             },
             outputs={'R_timestamps': f'R_timestamps_{i}', 'channelIDs': f'channelIDs_{i}'},
             namespace=pipeline_key,

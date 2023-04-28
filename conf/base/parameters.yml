@@ -1,5 +1,6 @@
-synchronous_channels: True
-
 raw_data:
   base_directory: '/mnt/z/recordings/Mea1k/leejih/'
   file_extension: '.h5'
+
+parallel:
+  n_jobs: -1

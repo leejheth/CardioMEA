@@ -1,6 +1,8 @@
 black~=22.0
 flake8>=3.7.9, <5.0
 h5py
+hrv-analysis
+ipympl
 ipython>=7.31.1, <8.0; python_version < '3.8'
 ipython~=8.10; python_version >= '3.8'
 isort~=5.0
@@ -10,12 +12,14 @@ jupyterlab~=3.0, <3.6.0
 kedro[pandas]~=0.18.7
 kedro-telemetry~=0.2.0
 kedro-viz
+lmfit
 nbstripout~=0.4
 numpy
-pip-tools
+pip-tools<7.0
 psycopg2-binary
 pytest-cov~=3.0
 pytest-mock>=1.7.1, <2.0
 pytest~=7.2
 scipy
 scikit-learn
+sympy
