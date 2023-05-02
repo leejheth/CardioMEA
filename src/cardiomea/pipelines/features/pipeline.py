@@ -72,7 +72,7 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
             ],
             outputs=[
                 "signals",
-                "electrode_info",
+                "electrodes_info",
                 "gain",
                 "rec_duration",
             ],
@@ -100,12 +100,10 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
         node(
             func=get_active_area,
             inputs=[
-                "electrode_info", 
+                "electrodes_info", 
                 "channelIDs",
             ],
-            outputs=[
-                "active_area",
-            ],
+            outputs="active_area",
             tags=["activity","network"],
             name="get_active_area",
         ),
@@ -119,9 +117,7 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "params:signals.after_R",
                 "params:parallel.n_jobs"
             ],
-            outputs=[
-                "FP_waves",
-            ],
+            outputs="FP_waves",
             tags=["waveforms"],
             name="get_FP_waves",
         ),
@@ -147,10 +143,9 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
             func=get_HRV_features,
             inputs=[
                 "R_timestamps", 
+                "params:parallel.n_jobs",
             ],
-            outputs=[
-                "HRV_features",
-            ],
+            outputs="HRV_features",
             tags=["HRV"],
             name="get_HRV_features",
         ),
@@ -183,6 +178,7 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "HRV_features",
                 "conduction_speed",
                 "n_beats",
+                "params:tablename"
             ],
             outputs=None,
             tags=["upload","data","SQL"],
@@ -227,8 +223,10 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
                 'signals.T_from': 'signals.T_from',
                 'signals.T_to': 'signals.T_to',
                 'signals.s_freq': 'signals.s_freq',
+                'tablename': 'tablename',
             },
-            outputs={'R_timestamps': f'R_timestamps_{i}', 'channelIDs': f'channelIDs_{i}'},
+            # outputs={'R_timestamps': f'R_timestamps_{i}', 'channelIDs': f'channelIDs_{i}'},
+            outputs=None,
             namespace=pipeline_key,
         )
 

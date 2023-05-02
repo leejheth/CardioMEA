@@ -24,7 +24,7 @@ file_path_full:
 
 signals:
   type: MemoryDataSet
-electrode_info:
+electrodes_info:
   type: MemoryDataSet  
 gain:
   type: MemoryDataSet

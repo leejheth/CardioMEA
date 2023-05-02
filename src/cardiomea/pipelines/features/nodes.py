@@ -3,6 +3,7 @@ This is a boilerplate pipeline 'features'
 generated using Kedro 0.18.7
 """
 
+import datetime
 import h5py
 import glob
 import numpy as np
@@ -17,7 +18,8 @@ from scipy import signal
 from scipy.signal import find_peaks
 from joblib import Parallel, delayed
 from lmfit import Model, Parameters
-from sympy import sym
+from psycopg2.extensions import register_adapter, AsIs
+import sympy as sym
 
 def list_rec_files(data_catalog,base_directory,ext):
     """List all recording files in the directory.
@@ -171,7 +173,7 @@ def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,n_CPUs,s_
     filtered = signal.filtfilt(b, a, signals) 
 
     channelIDs = [ch for ch in range(len(signals))]
-    # Parallel processing using all available CPUs
+    # Parallel processing using multiple CPUs
     res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_R_timestamps)(filtered[ch],mult_factor,min_peak_dist) for ch in channelIDs])
     n_Rpeaks, r_timestamps = map(list,zip(*res))
 
@@ -196,7 +198,9 @@ def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,n_CPUs,s_
 def _R_timestamps(signal_single,mult_factor,min_peak_dist):
     """Identify R peaks in a single channel."""
     thr = mult_factor*np.std(signal_single)
-    r_locs, _ = _peakseek(signal_single, minpeakdist=min_peak_dist, minpeakh=thr)
+    # r_locs, _ = _peakseek(signal_single, minpeakdist=min_peak_dist, minpeakh=thr)
+    r_locs, _ = find_peaks(signal_single, distance=min_peak_dist, prominence=thr)
+    find_peaks
 
     return len(r_locs), r_locs
 
@@ -254,8 +258,8 @@ def get_FP_waves(signals,sync_timestamps,sync_channelIDs,before_R,after_R,n_CPUs
     Returns:
         FP_waves (list): List of FP waves.
     """
-    # Parallel processing using all available CPUs
-    FP_waves = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave)(signals[ch],sync_timestamps[ch],before_R,after_R) for ch in sync_channelIDs])
+    # Parallel processing using multiple CPUs
+    FP_waves = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave)(signals[ch],sync_timestamps[count],before_R,after_R) for count, ch in enumerate(sync_channelIDs)])
     
     return FP_waves
 
@@ -278,13 +282,13 @@ def get_FP_wave_features(FP_waves,before_R,T_from,T_to,n_CPUs,s_freq):
         s_freq (int): Sampling frequency of the signals.
         
     Returns:
-        R_amplitudes (list): List of R peak-to-peak amplitudes.
-        R_widths (list): List of estimated R spike widths.
-        FPDs (list): List of field potential durations.
+        R_amplitudes (list): List of R peak-to-peak amplitudes (in microvolts).
+        R_widths (list): List of estimated R spike widths (in milliseconds).
+        FPDs (list): List of field potential durations (in milliseconds).
     """
-    # Parallel processing using all available CPUs
+    # Parallel processing using multiple CPUs
     res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave_features)(wave,before_R,T_from,T_to,s_freq) for wave in FP_waves])
-    R_amplitudes, R_widths, FPDs = map(list(zip(*res)))
+    R_amplitudes, R_widths, FPDs = map(list,zip(*res))
 
     return R_amplitudes, R_widths, FPDs
 
@@ -297,13 +301,20 @@ def _FP_wave_features(wave,before_R,T_from,T_to,s_freq):
     # get an estimate of R spike width (duration of deviation from baseline)
     b, a = signal.butter(3,[100*2/s_freq,2000*2/s_freq],btype='band')
     R_filtered = signal.filtfilt(b, a, wave)
-    R_width = np.where(abs(R_filtered)>50)[0][-1]-np.where(abs(R_filtered)>50)[0][0]
+    try:
+        R_width = 1e3*(np.where(abs(R_filtered)>30)[0][-1]-np.where(abs(R_filtered)>30)[0][0])/s_freq # in milliseconds
+    except Exception:
+        R_width = np.nan
 
     # get FPD
     b, a = signal.butter(3,[3*2/s_freq,100*2/s_freq],btype='band')
     T_filtered = signal.filtfilt(b, a, wave)
-    Tpeak, _ = _peakseek(T_filtered[before_R+T_from:before_R+T_to], minpeakdist=10000, minpeakh=30)
-    FPD = Tpeak+T_from
+    # Tpeak, _ = _peakseek(T_filtered[before_R+T_from:before_R+T_to], minpeakdist=len(wave), minpeakh=30) # find just 1 peak
+    Tpeak, _ = find_peaks(T_filtered[before_R+T_from:before_R+T_to], distance=len(wave), prominence=15) # find just 1 peak
+    if Tpeak.size > 0:
+        FPD = 1e3*(Tpeak[0]+T_from)/s_freq # in milliseconds
+    else: # if no T peak is found
+        FPD = np.nan
         
     return R_amplitude, R_width, FPD
 
@@ -318,7 +329,7 @@ def get_HRV_features(sync_timestamps,n_CPUs):
     Returns:
         HRV_features (dict): Dictionary of HRV features.
     """
-    # Parallel processing using all available CPUs
+    # Parallel processing using multiple CPUs
     res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_hrv_features)(timestamps) for timestamps in sync_timestamps])
 
     # Create a defaultdict to store mean values
@@ -337,7 +348,9 @@ def get_HRV_features(sync_timestamps,n_CPUs):
 
 
 def _hrv_features(timestamps):
-    """Extract HRV features from a single channel."""
+    """Extract HRV features from a single channel.
+    Documentation that explains the features: https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html
+    """
     RR_intervals = np.diff(timestamps)
     
     # get time domain features
@@ -362,7 +375,7 @@ def get_conduction_speed(sync_timestamps,electrodes_info_updated,s_freq):
     """Estimate conduction speed.
 
     Fit a cone equation to the data and estimate conduction speed at each electrode using partial derivatives.  
-    Algorithms are adapted from Bayly et al. "stimation of Conduction Velocity Vector Fields from Epicardial Mapping Data" (1998) 
+    Algorithms are adapted from Bayly et al. "Estimation of Conduction Velocity Vector Fields from Epicardial Mapping Data" (1998) 
     and also from Cardio PyMEA https://github.com/csdunhamUC/cardio_pymea.git with modifications.
     
     Args:
@@ -375,9 +388,9 @@ def get_conduction_speed(sync_timestamps,electrodes_info_updated,s_freq):
         n_beats (int): Number of beats.
     """
     beat_clusters = np.vstack(sync_timestamps)
-    n_beats = len(sync_timestamps)
-    x_locs = electrodes_info_updated['x_loc']
-    y_locs = electrodes_info_updated['y_loc']
+    n_beats = len(sync_timestamps[0])
+    x_locs = electrodes_info_updated['x_locs']
+    y_locs = electrodes_info_updated['y_locs']
 
     def cone_surface(x, y, x_p, y_p, a, b, c):
         return (a*(x-x_p)**2 + b*(y-y_p)**2)**0.5 + c
@@ -424,12 +437,12 @@ def get_conduction_speed(sync_timestamps,electrodes_info_updated,s_freq):
         # calculate magnitude of the vector (conduction speed)
         speed = np.sqrt(velocity_x**2 + velocity_y**2)
 
-        speed_list.append(speed)
+        speed_list.append(np.mean(speed))
     
     return speed_list, n_beats
 
 
-def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_info_updated,active_area,R_amplitudes,R_widths,FPDs,HRV_features,conduction_speed,n_beats):
+def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_info_updated,active_area,R_amplitudes,R_widths,FPDs,HRV_features,conduction_speed,n_beats,tablename):
     """Upload extracted feature data to SQL server.
     
     Args:
@@ -438,39 +451,98 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
         gain (int): Gain of the recording.
         rec_duration (float): Duration of the recording in seconds.
         electrodes_info_updated (dict): Updated electrode information.
-        active_area (float): Active area of the electrode.
-        R_amplitudes (list): List of R peak amplitudes.
-        R_widths (list): List of R peak widths.
-        FPDs (list): List of FPDs (field potential durations).
+        active_area (float): Active area of the electrode (percentage).
+        R_amplitudes (list): List of R peak amplitudes (in microvolts).
+        R_widths (list): List of R peak widths (in milliseconds).
+        FPDs (list): List of FPDs (field potential durations) (in milliseconds).
         HRV_features (dict): Dictionary of HRV features.
         conduction_speed (list): List of conduction speed estimated in each beat.
         n_beats (int): Number of beats.
-    """
-    # get credentials data from text file
+        tablename (str): Name of the SQL table where the data is uploaded.
+    """    
+    # organize SQL column names and data types
+    sql_columns = [
+        ['cell_line', 'VARCHAR'],
+        ['compound', 'VARCHAR'],
+        ['note', 'VARCHAR'],
+        ['file_path_full', 'VARCHAR'],
+        ['gain', 'SMALLINT'],
+        ['rec_duration', 'DECIMAL(4,1)'],
+        ['n_electrodes_sync', 'SMALLINT'],
+        ['active_area_in_percent', 'DECIMAL(4,1)'],
+        ['R_amplitudes_mean', 'DECIMAL(6,1)'],
+        ['R_amplitudes_std', 'DECIMAL(7,1)'],
+        ['R_widths_mean', 'DECIMAL(4,1)'],
+        ['R_widths_std', 'DECIMAL(5,1)'],
+        ['FPDs_mean', 'DECIMAL(4,1)'],
+        ['FPDs_std', 'DECIMAL(5,1)'],
+        ['conduction_speed_mean', 'DECIMAL(3,1)'],
+        ['conduction_speed_std', 'DECIMAL(4,1)'],
+        ['n_beats', 'SMALLINT'],
+        ['time', 'TIMESTAMP']
+        ]
+
+    HRV_col = [[key, 'DECIMAL(15,1)'] for key, _ in HRV_features.items()]
+
+    # add HRV features to the list of SQL columns
+    sql_columns.extend(HRV_col)
+    
+    # prepare data in appropriate forms
+    cell_line = rec_info['cell_line']
+    compound = rec_info['compound']
+    note = rec_info['note']
+    n_electrodes_sync = electrodes_info_updated['num_channels']
+    R_amplitudes_mean = np.mean(R_amplitudes)
+    R_amplitudes_std = np.std(R_amplitudes)
+    R_widths_mean = np.nanmean(R_widths)
+    R_widths_std = np.nanstd(R_widths)
+    FPDs_mean = np.nanmean(FPDs)
+    FPDs_std = np.nanstd(FPDs)
+    conduction_speed_mean = np.mean(conduction_speed)
+    conduction_speed_std = np.std(conduction_speed)
+    timestamp = datetime.datetime.now()
+
+    values = [cell_line, compound, note, file_path_full, gain, rec_duration, n_electrodes_sync, active_area, R_amplitudes_mean, R_amplitudes_std, R_widths_mean, R_widths_std, FPDs_mean, FPDs_std, conduction_speed_mean, conduction_speed_std, n_beats, timestamp]
+
+    HRV_values = [value for _, value in HRV_features.items()]
+    
+    # add HRV features to the list of values
+    values.extend(HRV_values)
+
+    # get PostgreSQL database information and credentials data from text file
+    # .txt file format: host, database, user, password in each line
     with open('conf/local/postgresql.txt', 'r') as f:
         sql_credentials = f.read().splitlines()
     
+    register_adapter(np.int64, AsIs)
+    register_adapter(np.float32, AsIs)
+
     # connect to sql server
     conn = None
     try:
         # connect to the PostgreSQL server
         print('Connecting to the PostgreSQL database...')
         conn = psycopg2.connect(
-            host=sql_credentials[1],
-            database=sql_credentials[2],
-            user=sql_credentials[3],
-            password=sql_credentials[4]
+            host=sql_credentials[0],
+            database=sql_credentials[1],
+            user=sql_credentials[2],
+            password=sql_credentials[3]
         )
 		
         # create a cursor
         cur = conn.cursor()
 
-        query = "INSERT INTO tablename (text_for_field1, text_for_field2, text_for_field3, text_for_field4) VALUES (%s, %s, %s, %s)"
-        cur.execute(query, (field1, field2, field3, field4))
+        # create a table if not exists
+        cur.execute(f"CREATE TABLE IF NOT EXISTS {tablename} ({','.join([' '.join(c) for c in sql_columns])})")
+
+        # insert data into the table
+        query = f"INSERT INTO {tablename} ({','.join([c[0] for c in sql_columns])}) VALUES ({','.join(['%s' for i in range(len(sql_columns))])})"
+        cur.execute(query, tuple(values))
         conn.commit()
                     
 	    # close the communication with the PostgreSQL
         cur.close()
+
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
     finally:
