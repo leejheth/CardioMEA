@@ -6,8 +6,6 @@ conf/local/**
 !conf/local/.gitkeep
 .telemetry
 
-# ignore auxiliary output files
-conf/base/file_count.yml
 
 # ignore potentially sensitive credentials files
 conf/**/*credentials*
