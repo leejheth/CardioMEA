@@ -482,7 +482,7 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
         ['time', 'TIMESTAMP']
         ]
 
-    HRV_col = [[key, 'DECIMAL(15,1)'] for key, _ in HRV_features.items()]
+    HRV_col = [[key, 'DECIMAL'] for key, _ in HRV_features.items()]
 
     # add HRV features to the list of SQL columns
     sql_columns.extend(HRV_col)
