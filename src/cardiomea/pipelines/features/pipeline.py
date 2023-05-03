@@ -186,6 +186,10 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
         ),
     ])
 
+def pass_value(num):
+    def generate_num():
+        return num
+    return generate_num
 
 def create_auto_pipeline(**kwargs) -> Pipeline:   
     # Read the number of files to process
@@ -196,11 +200,6 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
     p_list = Pipeline([])
     for i in range(n_files):
         pipeline_key = f'pipeline_{i}'
-
-        def pass_value(num):
-            def generate_num():
-                return num
-            return generate_num
 
         p_list += pipeline([
             node(
