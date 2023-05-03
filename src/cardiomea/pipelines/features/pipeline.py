@@ -186,16 +186,17 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
         ),
     ])
 
-def pass_value(num):
-    def generate_num():
-        return num
-    return generate_num
 
 def create_auto_pipeline(**kwargs) -> Pipeline:   
     # Read the number of files to process
     with open("conf/base/file_count.yml", "r") as f:
         content = yaml.safe_load(f)
     n_files = content['n_files']
+
+    def pass_value(num):
+        def generate_num():
+            return num
+        return generate_num
 
     p_list = Pipeline([])
     for i in range(n_files):
