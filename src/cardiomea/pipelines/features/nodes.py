@@ -471,10 +471,13 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
         ['rec_duration', 'DECIMAL(4,1)'],
         ['n_electrodes_sync', 'SMALLINT'],
         ['active_area_in_percent', 'DECIMAL(4,1)'],
+        ['R_amplitudes_str', 'VARCHAR'],
         ['R_amplitudes_mean', 'DECIMAL(6,1)'],
         ['R_amplitudes_std', 'DECIMAL(7,1)'],
+        ['R_widths_str', 'VARCHAR'],
         ['R_widths_mean', 'DECIMAL(4,1)'],
         ['R_widths_std', 'DECIMAL(5,1)'],
+        ['FPDs_str', 'VARCHAR'],
         ['FPDs_mean', 'DECIMAL(4,1)'],
         ['FPDs_std', 'DECIMAL(5,1)'],
         ['conduction_speed_mean', 'DECIMAL(3,1)'],
@@ -492,17 +495,20 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
     compound = rec_info['compound']
     note = rec_info['note']
     n_electrodes_sync = electrodes_info_updated['num_channels']
+    R_amplitudes_str = ' '.join(map(str, R_amplitudes))
     R_amplitudes_mean = np.mean(R_amplitudes)
     R_amplitudes_std = np.std(R_amplitudes)
+    R_widths_str = ' '.join(map(str, R_widths))
     R_widths_mean = np.nanmean(R_widths)
     R_widths_std = np.nanstd(R_widths)
+    FPDs_str = ' '.join(map(str, FPDs))
     FPDs_mean = np.nanmean(FPDs)
     FPDs_std = np.nanstd(FPDs)
     conduction_speed_mean = np.mean(conduction_speed)
     conduction_speed_std = np.std(conduction_speed)
     timestamp = datetime.datetime.now()
 
-    values = [timestamp, cell_line, compound, note, file_path_full, gain, rec_duration, n_electrodes_sync, active_area, R_amplitudes_mean, R_amplitudes_std, R_widths_mean, R_widths_std, FPDs_mean, FPDs_std, conduction_speed_mean, conduction_speed_std, n_beats]
+    values = [timestamp, cell_line, compound, note, file_path_full, gain, rec_duration, n_electrodes_sync, active_area, R_amplitudes_str, R_amplitudes_mean, R_amplitudes_std, R_widths_str, R_widths_mean, R_widths_std, FPDs_str, FPDs_mean, FPDs_std, conduction_speed_mean, conduction_speed_std, n_beats]
 
     HRV_values = [value for _, value in HRV_features.items()]
     
