@@ -29,11 +29,7 @@ electrodes_info:
 gain:
   type: MemoryDataSet
 
-# scooters:
-#   type: pandas.SQLTableDataSet
-#   credentials: scooters_credentials
-#   table_name: scooters
-#   load_args:
-#     columns: [name, gear]
-#   save_args:
-#     if_exists: replace
+cardio_db:
+  type: pandas.SQLQueryDataSet
+  sql: "SELECT * FROM features"
+  credentials: db_credentials

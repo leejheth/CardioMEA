@@ -1,4 +1,5 @@
 black~=22.0
+dash-bootstrap-components
 flake8>=3.7.9, <5.0
 h5py
 hrv-analysis

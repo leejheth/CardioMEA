@@ -48,6 +48,8 @@ black==22.12.0
     # via -r src/requirements.in
 bleach==6.0.0
     # via nbconvert
+blinker==1.6.2
+    # via flask
 blosc2==2.0.0
     # via tables
 build==0.10.0
@@ -68,6 +70,7 @@ click==8.1.3
     # via
     #   black
     #   cookiecutter
+    #   flask
     #   kedro
     #   pip-tools
     #   uvicorn
@@ -83,6 +86,16 @@ cycler==0.11.0
     # via matplotlib
 cython==0.29.34
     # via tables
+dash==2.9.3
+    # via dash-bootstrap-components
+dash-bootstrap-components==1.4.1
+    # via -r src/requirements.in
+dash-core-components==2.0.0
+    # via dash
+dash-html-components==2.0.0
+    # via dash
+dash-table==5.0.0
+    # via dash
 db-dtypes==1.1.1
     # via pandas-gbq
 debugpy==1.6.6
@@ -105,6 +118,8 @@ fastjsonschema==2.16.3
     # via nbformat
 flake8==4.0.1
     # via -r src/requirements.in
+flask==2.3.2
+    # via dash
 fonttools==4.39.3
     # via matplotlib
 fsspec==2023.3.0
@@ -173,6 +188,7 @@ idna==3.4
     #   requests
 importlib-metadata==6.1.0
     # via
+    #   flask
     #   jupyter-client
     #   jupyterlab-server
     #   kedro
@@ -214,11 +230,14 @@ ipywidgets==8.0.6
     #   jupyter
 isort==5.12.0
     # via -r src/requirements.in
+itsdangerous==2.1.2
+    # via flask
 jedi==0.18.2
     # via ipython
 jinja2==3.1.2
     # via
     #   cookiecutter
+    #   flask
     #   jinja2-time
     #   jupyter-server
     #   jupyterlab
@@ -301,6 +320,7 @@ markupsafe==2.1.2
     # via
     #   jinja2
     #   nbconvert
+    #   werkzeug
 matplotlib==3.7.1
     # via
     #   hrv-analysis
@@ -441,7 +461,9 @@ platformdirs==3.2.0
     #   jupyter-core
     #   pytoolconfig
 plotly==5.14.1
-    # via kedro-viz
+    # via
+    #   dash
+    #   kedro-viz
 pluggy==1.0.0
     # via
     #   kedro
@@ -699,6 +721,8 @@ websocket-client==1.5.1
     # via jupyter-server
 websockets==11.0.1
     # via uvicorn
+werkzeug==2.3.3
+    # via flask
 wheel==0.40.0
     # via pip-tools
 widgetsnbextension==4.0.7

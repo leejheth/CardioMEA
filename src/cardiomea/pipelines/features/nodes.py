@@ -530,9 +530,10 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
         print('Connecting to the PostgreSQL database...')
         conn = psycopg2.connect(
             host=sql_credentials[0],
-            database=sql_credentials[1],
+            dbname=sql_credentials[1],
             user=sql_credentials[2],
-            password=sql_credentials[3]
+            password=sql_credentials[3],
+            port=sql_credentials[4]
         )
 		
         # create a cursor

@@ -225,7 +225,6 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
                 'signals.s_freq': 'signals.s_freq',
                 'tablename': 'tablename',
             },
-            # outputs={'R_timestamps': f'R_timestamps_{i}', 'channelIDs': f'channelIDs_{i}'},
             outputs=None,
             namespace=pipeline_key,
         )
