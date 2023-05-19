@@ -4,6 +4,7 @@ generated using Kedro 0.18.7
 """
 
 import yaml
+from kedro.extras.datasets.pickle import PickleDataSet
 from kedro.pipeline import Pipeline, node, pipeline
 from cardiomea.pipelines.features.nodes import (
     list_rec_files,
@@ -17,6 +18,7 @@ from cardiomea.pipelines.features.nodes import (
     get_HRV_features,
     get_conduction_speed,
     upload_to_sql_server,
+    pass_value,
 )
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -193,19 +195,17 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
         content = yaml.safe_load(f)
     n_files = content['n_files']
 
-    def pass_value(num):
-        def generate_num():
-            return num
-        return generate_num
-
     p_list = Pipeline([])
     for i in range(n_files):
+        ind = PickleDataSet(filepath="data/02_intermediate/loop_index.pkl", backend="pickle")
+        ind.save(i)
+
         pipeline_key = f'pipeline_{i}'
 
         p_list += pipeline([
             node(
-                    func=pass_value(i),
-                    inputs=None,
+                    func=pass_value,
+                    inputs="tmp_ind",
                     outputs=pipeline_key,
                 )
         ])

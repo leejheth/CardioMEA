@@ -2,16 +2,15 @@
 This is a boilerplate pipeline 'visualize'
 generated using Kedro 0.18.7
 """
-from dash import Dash, dash_table, html, dcc, callback, Output, Input, State
+from dash import Dash, dcc, dash_table, html, Output, Input, State
 import dash_bootstrap_components as dbc
-# from dash.dependencies import Input, Output, State
 import plotly.express as px
 import pandas as pd
 import webbrowser
 import numpy as np
 
+
 def dashboard(cardio_db,port):
-    print(cardio_db.shape)
     cell_lines = cardio_db["cell_line"].unique()
     col_simple = ['cell_line','compound','note','file_path_full','time']
 
@@ -89,25 +88,37 @@ def dashboard(cardio_db,port):
                 for row in selected_data
             ])
         ])
-    ###
+
+    example_df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/gapminder_unfiltered.csv')
+    @app.callback(
+        Output('graph-content', 'figure'),
+        Input('dropdown-selection', 'value')
+    )
+    def update_graph(value):
+        dff = example_df[example_df.country==value]
+        return px.line(dff, x='year', y='pop')
 
     app.layout = html.Div([
         html.H1(children='CardioMEA Dashboard', style={'textAlign':'center'}),
         dbc.Row([          
-            html.Div(
-                [
-                    # check list to choose cell lines    
-                    dbc.Form([checklist]),
-                    html.H4("List of files"),
-                    # table to show shorlisted files
-                    table,
-                    html.Div(id='selected_data')
-                ]
-            ),
+            html.Div([
+                # check list to choose cell lines    
+                dbc.Form([checklist]),
+                html.H4("List of files"),
+                # table to show shorlisted files
+                table,
+                html.Div(id='selected_data'),      
+            ]),
         ]),
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    dcc.Dropdown(example_df.country.unique(), 'Canada', id='dropdown-selection'),
+                    dcc.Graph(id='graph-content'),
+                ])  
+            ], width=4),
+        ])
     ])
-
-
 
     # open the URL with the default web browser of the user’s computer
     print("Ctrl + C to exit.")
@@ -116,4 +127,3 @@ def dashboard(cardio_db,port):
     app.run(debug=True, port=port)
 
     
-

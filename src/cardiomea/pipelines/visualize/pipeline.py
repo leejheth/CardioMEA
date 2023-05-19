@@ -5,7 +5,7 @@ generated using Kedro 0.18.7
 
 from kedro.pipeline import Pipeline, node, pipeline
 from cardiomea.pipelines.visualize.nodes import (
-    dashboard
+    dashboard,
 )
 
 

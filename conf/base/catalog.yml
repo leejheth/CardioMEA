@@ -1,3 +1,8 @@
+tmp_ind:
+  type: pickle.PickleDataSet
+  filepath: data/02_intermediate/loop_index.pkl
+  backend: pickle
+
 data_catalog:
   type: pandas.CSVDataSet
   filepath: data/01_raw/catalog.csv

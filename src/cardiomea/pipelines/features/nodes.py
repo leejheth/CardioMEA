@@ -21,6 +21,9 @@ from lmfit import Model, Parameters
 from psycopg2.extensions import register_adapter, AsIs
 import sympy as sym
 
+def pass_value(num):
+    return num
+
 def list_rec_files(data_catalog,base_directory,ext):
     """List all recording files in the directory.
 
