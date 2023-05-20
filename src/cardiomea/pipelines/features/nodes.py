@@ -21,8 +21,6 @@ from lmfit import Model, Parameters
 from psycopg2.extensions import register_adapter, AsIs
 import sympy as sym
 
-def pass_value(num):
-    return num
 
 def list_rec_files(data_catalog,base_directory,ext):
     """List all recording files in the directory.
@@ -177,8 +175,15 @@ def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,n_CPUs,s_
 
     channelIDs = [ch for ch in range(len(signals))]
     # Parallel processing using multiple CPUs
-    res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_R_timestamps)(filtered[ch],mult_factor,min_peak_dist) for ch in channelIDs])
-    n_Rpeaks, r_timestamps = map(list,zip(*res))
+    # res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_R_timestamps)(filtered[ch],mult_factor,min_peak_dist) for ch in channelIDs])
+    # n_Rpeaks, r_timestamps = map(list,zip(*res))
+
+    n_Rpeaks=[]
+    r_timestamps=[]
+    for ch in channelIDs:
+        n_r_locs, r_locs = _R_timestamps(filtered[ch],mult_factor,min_peak_dist)
+        n_Rpeaks.append(n_r_locs)
+        r_timestamps.append(r_locs)
 
     # identify synchronous beats
     sync_beats = st.mode(n_Rpeaks)
@@ -262,7 +267,11 @@ def get_FP_waves(signals,sync_timestamps,sync_channelIDs,before_R,after_R,n_CPUs
         FP_waves (list): List of FP waves.
     """
     # Parallel processing using multiple CPUs
-    FP_waves = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave)(signals[ch],sync_timestamps[count],before_R,after_R) for count, ch in enumerate(sync_channelIDs)])
+    # FP_waves = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave)(signals[ch],sync_timestamps[count],before_R,after_R) for count, ch in enumerate(sync_channelIDs)])
+
+    FP_waves=[]
+    for count, ch in enumerate(sync_channelIDs):
+        FP_waves.append(_FP_wave(signals[ch],sync_timestamps[count],before_R,after_R))
     
     return FP_waves
 
@@ -290,8 +299,17 @@ def get_FP_wave_features(FP_waves,before_R,T_from,T_to,n_CPUs,s_freq):
         FPDs (list): List of field potential durations (in milliseconds).
     """
     # Parallel processing using multiple CPUs
-    res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave_features)(wave,before_R,T_from,T_to,s_freq) for wave in FP_waves])
-    R_amplitudes, R_widths, FPDs = map(list,zip(*res))
+    # res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave_features)(wave,before_R,T_from,T_to,s_freq) for wave in FP_waves])
+    # R_amplitudes, R_widths, FPDs = map(list,zip(*res))
+
+    R_amplitudes=[]
+    R_widths=[]
+    FPDs=[]
+    for wave in FP_waves:
+        R_amplitude, R_width, FPD = _FP_wave_features(wave,before_R,T_from,T_to,s_freq)
+        R_amplitudes.append(R_amplitude)
+        R_widths.append(R_width)
+        FPDs.append(FPD)
 
     return R_amplitudes, R_widths, FPDs
 
@@ -333,7 +351,11 @@ def get_HRV_features(sync_timestamps,n_CPUs):
         HRV_features (dict): Dictionary of HRV features.
     """
     # Parallel processing using multiple CPUs
-    res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_hrv_features)(timestamps) for timestamps in sync_timestamps])
+    # res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_hrv_features)(timestamps) for timestamps in sync_timestamps])
+
+    res=[]
+    for timestamps in sync_timestamps:
+        res.append(_hrv_features(timestamps))
 
     # Create a defaultdict to store mean values
     HRV_features = defaultdict(int)

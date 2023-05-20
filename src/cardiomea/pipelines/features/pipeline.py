@@ -4,7 +4,7 @@ generated using Kedro 0.18.7
 """
 
 import yaml
-from kedro.extras.datasets.pickle import PickleDataSet
+from functools import partial, update_wrapper
 from kedro.pipeline import Pipeline, node, pipeline
 from cardiomea.pipelines.features.nodes import (
     list_rec_files,
@@ -18,7 +18,6 @@ from cardiomea.pipelines.features.nodes import (
     get_HRV_features,
     get_conduction_speed,
     upload_to_sql_server,
-    pass_value,
 )
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -51,19 +50,6 @@ def list_rec_files_pipeline(**kwargs) -> Pipeline:
 
 def extract_features_pipeline(**kwargs) -> Pipeline:    
     return pipeline([
-        node(
-            func=parse_rec_file_info,
-            inputs=[
-                "data_catalog_full", 
-                "index",
-            ],
-            outputs=[
-                "rec_info",
-                "file_path_full",
-            ],
-            tags=["directory","files"],
-            name="parse_rec_file_info",
-        ),
         node(
             func=extract_data,
             inputs=[
@@ -197,21 +183,30 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
 
     p_list = Pipeline([])
     for i in range(n_files):
-        ind = PickleDataSet(filepath="data/02_intermediate/loop_index.pkl", backend="pickle")
-        ind.save(i)
+        parse_rec_file_info_partial = partial(parse_rec_file_info,index=i)
 
         pipeline_key = f'pipeline_{i}'
+        rec_info_key = f'rec_info_{i}'
+        file_path_full_key = f'file_path_full_{i}'
+        node_key = f'parse_node_{i}'
 
         p_list += pipeline([
             node(
-                    func=pass_value,
-                    inputs="tmp_ind",
-                    outputs=pipeline_key,
-                )
+                func=update_wrapper(parse_rec_file_info_partial,parse_rec_file_info),
+                inputs=[
+                    "data_catalog_full", 
+                ],
+                outputs=[
+                    rec_info_key,
+                    file_path_full_key,
+                ],
+                tags=["directory","files"],
+                name=node_key,
+            ),
         ])
         p_list += pipeline(
             pipe=extract_features_pipeline(),
-            inputs={'data_catalog_full': 'data_catalog_full','index': pipeline_key},
+            inputs={'rec_info': rec_info_key, 'file_path_full': file_path_full_key},
             parameters={
                 'signals.start_frame': 'signals.start_frame',
                 'signals.length': 'signals.length',

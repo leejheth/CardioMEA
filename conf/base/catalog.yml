@@ -1,8 +1,3 @@
-tmp_ind:
-  type: pickle.PickleDataSet
-  filepath: data/02_intermediate/loop_index.pkl
-  backend: pickle
-
 data_catalog:
   type: pandas.CSVDataSet
   filepath: data/01_raw/catalog.csv
@@ -16,23 +11,6 @@ data_catalog_full:
     sep: ','
   save_args:
     index: False
-
-counter:
-  type: MemoryDataSet
-index:
-  type: MemoryDataSet
-
-rec_info:
-  type: MemoryDataSet
-file_path_full:
-  type: MemoryDataSet
-
-signals:
-  type: MemoryDataSet
-electrodes_info:
-  type: MemoryDataSet  
-gain:
-  type: MemoryDataSet
 
 cardio_db:
   type: pandas.SQLQueryDataSet
