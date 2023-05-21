@@ -184,6 +184,7 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
     p_list = Pipeline([])
     for i in range(n_files):
         parse_rec_file_info_partial = partial(parse_rec_file_info,index=i)
+        update_wrapper(parse_rec_file_info_partial,parse_rec_file_info)
 
         pipeline_key = f'pipeline_{i}'
         rec_info_key = f'rec_info_{i}'
@@ -192,7 +193,7 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
 
         p_list += pipeline([
             node(
-                func=update_wrapper(parse_rec_file_info_partial,parse_rec_file_info),
+                func=parse_rec_file_info_partial,
                 inputs=[
                     "data_catalog_full", 
                 ],
