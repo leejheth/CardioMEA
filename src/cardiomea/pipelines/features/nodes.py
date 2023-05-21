@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import psycopg2
 import statistics as st
+import time
 import warnings
 import yaml
 import hrvanalysis as hrva
@@ -378,22 +379,31 @@ def _hrv_features(timestamps):
     """
     RR_intervals = np.diff(timestamps)
     
-    # get time domain features
-    time_domain_features = hrva.get_time_domain_features(RR_intervals)
+    try:
+        # get time domain features
+        time_domain_features = hrva.get_time_domain_features(RR_intervals)
+        
+        # get geometrical features
+        geometrical_features = hrva.get_geometrical_features(RR_intervals)
+        
+        # get frequency domain features
+        frequency_domain_features = hrva.get_frequency_domain_features(RR_intervals)
+        
+        # get csi and cvi features
+        csi_cvi_features = hrva.get_csi_cvi_features(RR_intervals)
+        
+        # get poincare plot features
+        poincare_plot_features = hrva.get_poincare_plot_features(RR_intervals)
+
+        all_hrv_features = {**time_domain_features, **geometrical_features, **frequency_domain_features, **csi_cvi_features, **poincare_plot_features}
     
-    # get geometrical features
-    geometrical_features = hrva.get_geometrical_features(RR_intervals)
-    
-    # get frequency domain features
-    frequency_domain_features = hrva.get_frequency_domain_features(RR_intervals)
-    
-    # get csi and cvi features
-    csi_cvi_features = hrva.get_csi_cvi_features(RR_intervals)
-    
-    # get poincare plot features
-    poincare_plot_features = hrva.get_poincare_plot_features(RR_intervals)
-    
-    return {**time_domain_features, **geometrical_features, **frequency_domain_features, **csi_cvi_features, **poincare_plot_features}
+    except Exception:
+        keys = ['mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','triangular_index','tinn','lf','hf','lf_hf_ratio','lfnu','hfnu','total_power','vlf','csi','cvi','Modified_csi','sd1','sd2','ratio_sd2_sd1']
+        all_hrv_features = dict([])
+        for key in keys:
+            all_hrv_features.update({key:None})
+
+    return all_hrv_features
 
 
 def get_conduction_speed(sync_timestamps,electrodes_info_updated,s_freq):

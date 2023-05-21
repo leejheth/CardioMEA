@@ -182,6 +182,8 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
     n_files = content['n_files']
 
     p_list = Pipeline([])
+
+
     for i in range(n_files):
         parse_rec_file_info_partial = partial(parse_rec_file_info,index=i)
         update_wrapper(parse_rec_file_info_partial,parse_rec_file_info)
