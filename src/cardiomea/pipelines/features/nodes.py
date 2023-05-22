@@ -116,15 +116,15 @@ def extract_data(file_path_full, start_frame, length, s_freq):
 
     # get channel information
     mapping = obj.get('mapping')
-    channels = np.array(mapping['channel'])
-    electrodes = np.array(mapping['electrode'])
+    channels = mapping['channel']
+    electrodes = mapping['electrode']
     routed_idxs = np.where(electrodes > -1)[0] # remove unused channels
-    channel_ids = list(channels[routed_idxs])
+    channel_ids = channels[routed_idxs]
     electrode_ids = list(electrodes[routed_idxs])
     num_channels = len(electrode_ids)
     num_frames = len(obj.get('sig')[0,:])
-    x_locs = list(np.array(mapping['x'][routed_idxs]))
-    y_locs = list(np.array(mapping['y'][routed_idxs]))
+    x_locs = list(mapping['x'][routed_idxs])
+    y_locs = list(mapping['y'][routed_idxs])
 
     electrodes_info = dict([
         ("electrode_ids", electrode_ids),
@@ -145,10 +145,10 @@ def extract_data(file_path_full, start_frame, length, s_freq):
     if start_frame < (num_frames-1):
         if (start_frame+length) > num_frames:
             warnings.warn("The specified time frame exceeds the data length. Signals will be extracted until end-of-file.")
-        signals = (obj.get('sig')[np.array(channel_ids),int(start_frame):int(start_frame+length)] * lsb).astype('float32')
+        signals = (obj.get('sig')[channel_ids,start_frame:start_frame+length] * lsb).astype('float16')
     else:
         warnings.warn(f"The start frame exceeds the length of data. Signals will be extracted from the start of the recording until MIN({length}-th frame, end-of-file) instead.")
-        signals = (obj.get('sig')[np.array(channel_ids),0:min(length,num_frames)] * lsb).astype('float32')
+        signals = (obj.get('sig')[channel_ids,0:min(length,num_frames)] * lsb).astype('float16')
 
     return signals, electrodes_info, gain, num_frames/s_freq
 
