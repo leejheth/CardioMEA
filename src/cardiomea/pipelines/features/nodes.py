@@ -153,7 +153,7 @@ def extract_data(file_path_full, start_frame, length, s_freq):
     return signals, electrodes_info, gain, num_frames/s_freq
 
 
-def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,n_CPUs,s_freq):
+def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,s_freq):
     """Identify R peaks in the signals.
     
     Args:
@@ -161,7 +161,6 @@ def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,n_CPUs,s_
         electrodes_info (dict): Dictionary containing the channel information (electrode ID, X and Y locations, number of electrodes used for recording).
         mult_factor (float): Multiplication factor for the threshold.
         min_peak_dist (int): Minimum distance between two R peaks.
-        n_CPUs (int): Number of CPUs to be used for parallel processing.
         s_freq (int): Sampling frequency of the recording.
         
     Returns:
@@ -175,9 +174,6 @@ def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,n_CPUs,s_
     filtered = signal.filtfilt(b, a, signals) 
 
     channelIDs = [ch for ch in range(len(signals))]
-    # Parallel processing using multiple CPUs
-    # res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_R_timestamps)(filtered[ch],mult_factor,min_peak_dist) for ch in channelIDs])
-    # n_Rpeaks, r_timestamps = map(list,zip(*res))
 
     n_Rpeaks=[]
     r_timestamps=[]
@@ -253,7 +249,7 @@ def get_active_area(electrodes_info, sync_channelIDs):
     return active_area
 
 
-def get_FP_waves(signals,sync_timestamps,sync_channelIDs,before_R,after_R,n_CPUs):
+def get_FP_waves(signals,sync_timestamps,sync_channelIDs,before_R,after_R):
     """Extract FP waves from the signals.
     
     Args:
@@ -262,14 +258,10 @@ def get_FP_waves(signals,sync_timestamps,sync_channelIDs,before_R,after_R,n_CPUs
         sync_channelIDs (list): List of channel IDs of R peaks that are synchronous.
         before_R (int): Number of frames before R peak.
         after_R (int): Number of frames after R peak.
-        n_CPUs (int): Number of CPUs to use for parallel processing.
         
     Returns:
         FP_waves (list): List of FP waves.
     """
-    # Parallel processing using multiple CPUs
-    # FP_waves = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave)(signals[ch],sync_timestamps[count],before_R,after_R) for count, ch in enumerate(sync_channelIDs)])
-
     FP_waves=[]
     for count, ch in enumerate(sync_channelIDs):
         FP_waves.append(_FP_wave(signals[ch],sync_timestamps[count],before_R,after_R))
@@ -283,7 +275,7 @@ def _FP_wave(signal_single,timestamps,before_R,after_R):
     return list(np.mean(np.vstack(waves),axis=0))
 
 
-def get_FP_wave_features(FP_waves,before_R,T_from,T_to,n_CPUs,s_freq):
+def get_FP_wave_features(FP_waves,before_R,T_from,T_to,s_freq):
     """Extract features from FP waves.
     
     Args:
@@ -291,7 +283,6 @@ def get_FP_wave_features(FP_waves,before_R,T_from,T_to,n_CPUs,s_freq):
         before_R (int): Number of frames before R peak.
         T_from (int): Start of the interval to find T peak (number of frames from R peak).
         T_to (int): End of the interval to find T peak (number of frames from R peak).
-        n_CPUs (int): Number of CPUs to use for parallel processing.
         s_freq (int): Sampling frequency of the signals.
         
     Returns:
@@ -299,10 +290,6 @@ def get_FP_wave_features(FP_waves,before_R,T_from,T_to,n_CPUs,s_freq):
         R_widths (list): List of estimated R spike widths (in milliseconds).
         FPDs (list): List of field potential durations (in milliseconds).
     """
-    # Parallel processing using multiple CPUs
-    # res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_FP_wave_features)(wave,before_R,T_from,T_to,s_freq) for wave in FP_waves])
-    # R_amplitudes, R_widths, FPDs = map(list,zip(*res))
-
     R_amplitudes=[]
     R_widths=[]
     FPDs=[]
@@ -341,19 +328,15 @@ def _FP_wave_features(wave,before_R,T_from,T_to,s_freq):
     return R_amplitude, R_width, FPD
 
 
-def get_HRV_features(sync_timestamps,n_CPUs):
+def get_HRV_features(sync_timestamps):
     """Extract heart rate variability (HRV) features.
     
     Args:
         sync_timestamps (list): List of timestamps of R peaks that are synchronous.
-        n_CPUs (int): Number of CPUs to use for parallel processing.
 
     Returns:
         HRV_features (dict): Dictionary of HRV features.
     """
-    # Parallel processing using multiple CPUs
-    # res = Parallel(n_jobs=n_CPUs, backend='multiprocessing')([delayed(_hrv_features)(timestamps) for timestamps in sync_timestamps])
-
     res=[]
     for timestamps in sync_timestamps:
         res.append(_hrv_features(timestamps))

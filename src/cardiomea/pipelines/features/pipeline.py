@@ -74,7 +74,6 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "electrodes_info",
                 "params:signals.factor",
                 "params:signals.min_peak_dist",
-                "params:parallel.n_jobs",
                 "params:signals.s_freq",
             ],
             outputs=[
@@ -103,7 +102,6 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "channelIDs",
                 "params:signals.before_R",
                 "params:signals.after_R",
-                "params:parallel.n_jobs"
             ],
             outputs="FP_waves",
             tags=["waveforms"],
@@ -116,7 +114,6 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "params:signals.before_R",
                 "params:signals.T_from",
                 "params:signals.T_to",
-                "params:parallel.n_jobs",
                 "params:signals.s_freq",
             ],
             outputs=[
@@ -131,7 +128,6 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
             func=get_HRV_features,
             inputs=[
                 "R_timestamps", 
-                "params:parallel.n_jobs",
             ],
             outputs="HRV_features",
             tags=["HRV"],
@@ -215,7 +211,6 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
                 'signals.length': 'signals.length',
                 'signals.factor': 'signals.factor',
                 'signals.min_peak_dist': 'signals.min_peak_dist',
-                'parallel.n_jobs': 'parallel.n_jobs',
                 'signals.before_R': 'signals.before_R',
                 'signals.after_R': 'signals.after_R',
                 'signals.T_from': 'signals.T_from',

@@ -3,7 +3,4 @@ raw_data:
   # base_directory: '/net/bs-filesvr02/export/group/hierlemann/recordings/Mea1k/leejih/'
   file_extension: '.h5'
 
-parallel:
-  n_jobs: 1
-
 tablename: 'features'
