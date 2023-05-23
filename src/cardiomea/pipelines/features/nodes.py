@@ -498,6 +498,7 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
         ['FPDs_str', 'VARCHAR'],
         ['FPDs_mean', 'DECIMAL(4,1)'],
         ['FPDs_std', 'DECIMAL(5,1)'],
+        ['conduction_speed_str', 'VARCHAR'],
         ['conduction_speed_mean', 'DECIMAL(3,1)'],
         ['conduction_speed_std', 'DECIMAL(4,1)'],
         ['n_beats', 'SMALLINT']
@@ -525,11 +526,12 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
     FPDs_str = ' '.join(map(str, FPDs))
     FPDs_mean = np.nanmean(FPDs)
     FPDs_std = np.nanstd(FPDs)
+    conduction_speed_str = ' '.join(map(str, conduction_speed))
     conduction_speed_mean = np.mean(conduction_speed)
     conduction_speed_std = np.std(conduction_speed)
     timestamp = datetime.datetime.now()
 
-    values = [timestamp, cell_line, compound, note, file_path_full, gain, rec_duration, n_electrodes_sync, active_area, R_amplitudes_str, R_amplitudes_mean, R_amplitudes_std, R_widths_str, R_widths_mean, R_widths_std, FPDs_str, FPDs_mean, FPDs_std, conduction_speed_mean, conduction_speed_std, n_beats]
+    values = [timestamp, cell_line, compound, note, file_path_full, gain, rec_duration, n_electrodes_sync, active_area, R_amplitudes_str, R_amplitudes_mean, R_amplitudes_std, R_widths_str, R_widths_mean, R_widths_std, FPDs_str, FPDs_mean, FPDs_std, conduction_speed_str, conduction_speed_mean, conduction_speed_std, n_beats]
 
     HRV_values = [value for _, value in HRV_features.items()]
     

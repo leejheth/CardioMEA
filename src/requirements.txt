@@ -627,6 +627,7 @@ soupsieve==2.4
     # via beautifulsoup4
 sqlalchemy==1.4.47
     # via
+    #   -r src/requirements.in
     #   kedro
     #   kedro-viz
 stack-data==0.6.2

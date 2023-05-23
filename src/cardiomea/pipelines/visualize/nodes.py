@@ -8,7 +8,9 @@ import plotly.express as px
 import pandas as pd
 import webbrowser
 import numpy as np
-
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 def dashboard(cardio_db,port):
     cell_lines = cardio_db["cell_line"].unique()
@@ -122,8 +124,8 @@ def dashboard(cardio_db,port):
 
     # open the URL with the default web browser of the user’s computer
     print("Ctrl + C to exit.")
-    # webbrowser.open_new(f"http://127.0.0.1:{port}/")
-
-    app.run(debug=True, port=port)
+    webbrowser.open_new(f"http://127.0.0.1:{port}/")
+    
+    app.run(debug=False, port=port)
 
     

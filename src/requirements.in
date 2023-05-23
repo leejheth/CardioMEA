@@ -22,4 +22,5 @@ pytest-mock>=1.7.1, <2.0
 pytest~=7.2
 scipy
 scikit-learn
+sqlalchemy<2.0
 sympy
