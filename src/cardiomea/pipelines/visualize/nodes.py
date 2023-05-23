@@ -8,31 +8,14 @@ import plotly.express as px
 import pandas as pd
 import webbrowser
 import numpy as np
+import itertools
 import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
 def dashboard(cardio_db,port):
     cell_lines = cardio_db["cell_line"].unique()
-    col_simple = ['cell_line','compound','note','file_path_full','time']
-
-    # df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/gapminder_unfiltered.csv')
-
-    # app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
-
-    # app.layout = html.Div([
-    #     html.H1(children='CardioMEA Dashboard', style={'textAlign':'center'}),
-    #     dcc.Dropdown(df.country.unique(), 'Canada', id='dropdown-selection'),
-    #     dcc.Graph(id='graph-content')
-    # ])
-
-    # @callback(
-    #     Output('graph-content', 'figure'),
-    #     Input('dropdown-selection', 'value')
-    # )
-    # def update_graph(value):
-    #     dff = df[df.country==value]
-    #     return px.line(dff, x='year', y='pop')
+    col_simple = ['cell_line','compound','file_path_full','time','note']
     
     app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -76,8 +59,8 @@ def dashboard(cardio_db,port):
     # Define callback to update selected rows
     @app.callback(
         Output('selected_data', 'children'),
-        [Input('datatable', 'selected_rows')],
-        [State('datatable', 'data')]
+        Input('datatable', 'selected_rows'),
+        State('datatable', 'data')
     )
     def update_selected_rows(selected_rows, data):
         if not selected_rows:
@@ -91,14 +74,102 @@ def dashboard(cardio_db,port):
             ])
         ])
 
-    example_df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/gapminder_unfiltered.csv')
+    
+    # R amplitude plot
     @app.callback(
-        Output('graph-content', 'figure'),
-        Input('dropdown-selection', 'value')
+        Output('r_amp_graph', 'figure'),
+        Input('datatable', 'selected_rows'),
+        State('datatable', 'data')
     )
-    def update_graph(value):
-        dff = example_df[example_df.country==value]
-        return px.line(dff, x='year', y='pop')
+    def r_amp_plot(selected_rows, data):
+        if not selected_rows:
+            return px.strip()
+        selected_data = [data[i] for i in selected_rows]
+        # convert list of dict to dataframe
+        data_df = pd.DataFrame(selected_data)
+        # filter only rows that are selected
+        df_selected = cardio_db[cardio_db['file_path_full'].isin(data_df['file_path_full'])].reset_index(drop=True)
+        # convert string of r_amplitudes to list of int
+        r_amp_list = list(df_selected['r_amplitudes_str'].apply(lambda x: list(map(int, x.split(' ')))))
+
+        xlabels=[]
+        for i in range(len(df_selected)):
+            xlabels += [f'file_{i+1}']*len(r_amp_list[i])
+        r_amp_flattened = list(itertools.chain(*r_amp_list))
+
+        return px.strip(x=xlabels, y=r_amp_flattened)
+
+    # R width plot
+    @app.callback(
+        Output('r_width_graph', 'figure'),
+        Input('datatable', 'selected_rows'),
+        State('datatable', 'data')
+    )
+    def r_amp_plot(selected_rows, data):
+        if not selected_rows:
+            return px.strip()
+        selected_data = [data[i] for i in selected_rows]
+        # convert list of dict to dataframe
+        data_df = pd.DataFrame(selected_data)
+        # filter only rows that are selected
+        df_selected = cardio_db[cardio_db['file_path_full'].isin(data_df['file_path_full'])].reset_index(drop=True)
+        # convert string of r_amplitudes to list of int
+        r_width_list = list(df_selected['r_widths_str'].apply(lambda x: list(map(float, x.split(' ')))))
+
+        xlabels=[]
+        for i in range(len(df_selected)):
+            xlabels += [f'file_{i+1}']*len(r_width_list[i])
+        r_width_flattened = list(itertools.chain(*r_width_list))
+
+        return px.strip(x=xlabels, y=r_width_flattened)
+    
+    # FPD plot
+    @app.callback(
+        Output('fpd_graph', 'figure'),
+        Input('datatable', 'selected_rows'),
+        State('datatable', 'data')
+    )
+    def fpd_plot(selected_rows, data):
+        if not selected_rows:
+            return px.strip()
+        selected_data = [data[i] for i in selected_rows]
+        # convert list of dict to dataframe
+        data_df = pd.DataFrame(selected_data)
+        # filter only rows that are selected
+        df_selected = cardio_db[cardio_db['file_path_full'].isin(data_df['file_path_full'])].reset_index(drop=True)
+        # convert string of r_amplitudes to list of int
+        fpd_list = list(df_selected['fpds_str'].apply(lambda x: list(map(float, x.split(' ')))))
+
+        xlabels=[]
+        for i in range(len(df_selected)):
+            xlabels += [f'file_{i+1}']*len(fpd_list[i])
+        fpd_flattened = list(itertools.chain(*fpd_list))
+
+        return px.strip(x=xlabels, y=fpd_flattened)
+    
+    # conduction speed plot
+    @app.callback(
+        Output('conduction_graph', 'figure'),
+        Input('datatable', 'selected_rows'),
+        State('datatable', 'data')
+    )
+    def conduction_plot(selected_rows, data):
+        if not selected_rows:
+            return px.strip()
+        selected_data = [data[i] for i in selected_rows]
+        # convert list of dict to dataframe
+        data_df = pd.DataFrame(selected_data)
+        # filter only rows that are selected
+        df_selected = cardio_db[cardio_db['file_path_full'].isin(data_df['file_path_full'])].reset_index(drop=True)
+        # convert string of r_amplitudes to list of int
+        speed_list = list(df_selected['conduction_speed_str'].apply(lambda x: list(map(float, x.split(' ')))))
+
+        xlabels=[]
+        for i in range(len(df_selected)):
+            xlabels += [f'file_{i+1}']*len(speed_list[i])
+        speed_flattened = list(itertools.chain(*speed_list))
+
+        return px.strip(x=xlabels, y=speed_flattened)
 
     app.layout = html.Div([
         html.H1(children='CardioMEA Dashboard', style={'textAlign':'center'}),
@@ -109,23 +180,43 @@ def dashboard(cardio_db,port):
                 html.H4("List of files"),
                 # table to show shorlisted files
                 table,
-                html.Div(id='selected_data'),      
+                html.Div(id='selected_data',children=[]),      
             ]),
         ]),
         dbc.Row([
             dbc.Col([
                 html.Div([
-                    dcc.Dropdown(example_df.country.unique(), 'Canada', id='dropdown-selection'),
-                    dcc.Graph(id='graph-content'),
+                    html.H4("R amplitudes", style={'textAlign':'center'}),
+                    dcc.Graph(id='r_amp_graph'),
                 ])  
-            ], width=4),
+            ], width=5),
+            dbc.Col([
+                html.Div([
+                    html.H4("R widths", style={'textAlign':'center'}),
+                    dcc.Graph(id='r_width_graph'),
+                ])  
+            ], width=5),
+        ]),
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    html.H4("FPDs", style={'textAlign':'center'}),
+                    dcc.Graph(id='fpd_graph'),
+                ])  
+            ], width=5),
+            dbc.Col([
+                html.Div([
+                    html.H4("Conduction speed", style={'textAlign':'center'}),
+                    dcc.Graph(id='conduction_graph'),
+                ])  
+            ], width=5),
         ])
     ])
 
     # open the URL with the default web browser of the user’s computer
     print("Ctrl + C to exit.")
-    webbrowser.open_new(f"http://127.0.0.1:{port}/")
+    # webbrowser.open_new(f"http://127.0.0.1:{port}/")
     
-    app.run(debug=False, port=port)
+    app.run(debug=True, port=port)
 
     
