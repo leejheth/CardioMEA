@@ -507,15 +507,18 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
 
     # add HRV features to the list of SQL columns
     sql_columns.extend(HRV_col)
-    
+
+    # convert to integers to prevent overflow
+    R_amplitudes_int = list(map(int,R_amplitudes))
+
     # prepare data in appropriate forms
     cell_line = rec_info['cell_line']
     compound = rec_info['compound']
     note = rec_info['note']
     n_electrodes_sync = electrodes_info_updated['num_channels']
-    R_amplitudes_str = ' '.join(map(str, R_amplitudes))
-    R_amplitudes_mean = np.mean(R_amplitudes)
-    R_amplitudes_std = np.std(R_amplitudes)
+    R_amplitudes_str = ' '.join(map(str, R_amplitudes_int))
+    R_amplitudes_mean = np.mean(R_amplitudes_int)
+    R_amplitudes_std = np.std(R_amplitudes_int)
     R_widths_str = ' '.join(map(str, R_widths))
     R_widths_mean = np.nanmean(R_widths)
     R_widths_std = np.nanstd(R_widths)
@@ -539,7 +542,7 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
         sql_credentials = f.read().splitlines()
     
     register_adapter(np.int64, AsIs)
-    register_adapter(np.float32, AsIs)
+    register_adapter(np.float16, AsIs)
 
     # connect to sql server
     conn = None
