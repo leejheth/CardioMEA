@@ -20,6 +20,7 @@ def create_dashboard_pipeline(**kwargs) -> Pipeline:
             inputs=[
                 "cardio_db",
                 "params:web_port", 
+                "params:raw_data.base_directory"
             ],
             outputs=None,
             tags=["dashboard"],

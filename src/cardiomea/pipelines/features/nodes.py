@@ -402,7 +402,7 @@ def get_conduction_speed(sync_timestamps,electrodes_info_updated,s_freq):
         s_freq (int): Sampling frequency of the signals.
     
     Returns:
-        speed_list (list): list of conduction speed estimated in each beat.
+        speed_list (list): list of conduction speed estimated in each beat. (unit of each data point: cm/s)
         n_beats (int): Number of beats.
     """
     beat_clusters = np.vstack(sync_timestamps)
