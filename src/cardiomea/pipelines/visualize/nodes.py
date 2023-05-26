@@ -103,109 +103,6 @@ def dashboard(cardio_db,port,base_directory):
             ])
         ])
 
-    
-    # # R amplitude plot
-    # @app.callback(
-    #     Output('r_amp_graph', 'figure'),
-    #     Input('datatable', 'selected_rows'),
-    #     State('datatable', 'data')
-    # )
-    # def r_amp_plot(selected_rows, data):
-    #     if not selected_rows:
-    #         return px.strip()
-    #     selected_data = [data[i] for i in selected_rows]
-    #     # convert list of dict to dataframe
-    #     data_df = pd.DataFrame(selected_data)
-    #     data_df["time"] = pd.to_datetime(data_df["time"])
-    #     # filter only rows that are selected and preserve the selection order
-    #     df_selected = pd.merge(data_df["time"],cardio_db, how="left", on="time", sort=False)
-    #     # convert string of r_amplitudes to list of int
-    #     r_amp_list = list(df_selected['r_amplitudes_str'].apply(lambda x: list(map(int, x.split(' ')))))
-
-    #     xlabels=[]
-    #     for i in range(len(df_selected)):
-    #         xlabels += [f'file_{i+1}']*len(r_amp_list[i])
-    #     r_amp_flattened = list(itertools.chain(*r_amp_list))
-    #     fig = px.strip(x=xlabels, y=r_amp_flattened, labels={'x':'', 'y':'Micro Volt'}).update_traces(jitter=1,opacity=0.6,marker_size=5)
-    #     fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['r_amplitudes_mean'].to_list(),
-    #                      error_y_array=df_selected['r_amplitudes_std'].to_list(),
-    #                      mode='markers',
-    #                      marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
-    #                      showlegend=False))
-    #     return fig
-
-    # # R width plot
-    # @app.callback(
-    #     Output('r_width_graph', 'figure'),
-    #     Input('datatable', 'selected_rows'),
-    #     State('datatable', 'data')
-    # )
-    # def r_amp_plot(selected_rows, data):
-    #     if not selected_rows:
-    #         return px.strip()
-    #     selected_data = [data[i] for i in selected_rows]
-    #     # convert list of dict to dataframe
-    #     data_df = pd.DataFrame(selected_data)
-    #     data_df["time"] = pd.to_datetime(data_df["time"])
-    #     # filter only rows that are selected and preserve the selection order
-    #     df_selected = pd.merge(data_df["time"],cardio_db, how="left", on="time", sort=False)
-    #     # convert string of r_amplitudes to list of int
-    #     r_width_list = list(df_selected['r_widths_str'].apply(lambda x: list(map(float, x.split(' ')))))
-
-    #     xlabels=[]
-    #     for i in range(len(df_selected)):
-    #         xlabels += [f'file_{i+1}']*len(r_width_list[i])
-    #     r_width_flattened = list(itertools.chain(*r_width_list))
-    #     return px.strip(x=xlabels, y=r_width_flattened, labels={'x':'', 'y':'Milli Second'})
-    
-    # # FPD plot
-    # @app.callback(
-    #     Output('fpd_graph', 'figure'),
-    #     Input('datatable', 'selected_rows'),
-    #     State('datatable', 'data')
-    # )
-    # def fpd_plot(selected_rows, data):
-    #     if not selected_rows:
-    #         return px.strip()
-    #     selected_data = [data[i] for i in selected_rows]
-    #     # convert list of dict to dataframe
-    #     data_df = pd.DataFrame(selected_data)
-    #     data_df["time"] = pd.to_datetime(data_df["time"])
-    #     # filter only rows that are selected and preserve the selection order
-    #     df_selected = pd.merge(data_df["time"],cardio_db, how="left", on="time", sort=False)
-    #     # convert string of r_amplitudes to list of int
-    #     fpd_list = list(df_selected['fpds_str'].apply(lambda x: list(map(float, x.split(' ')))))
-
-    #     xlabels=[]
-    #     for i in range(len(df_selected)):
-    #         xlabels += [f'file_{i+1}']*len(fpd_list[i])
-    #     fpd_flattened = list(itertools.chain(*fpd_list))
-    #     return px.strip(x=xlabels, y=fpd_flattened, labels={'x':'', 'y':'Milli Second'})
-    
-    # # conduction speed plot
-    # @app.callback(
-    #     Output('conduction_graph', 'figure'),
-    #     Input('datatable', 'selected_rows'),
-    #     State('datatable', 'data')
-    # )
-    # def conduction_plot(selected_rows, data):
-    #     if not selected_rows:
-    #         return px.strip()
-    #     selected_data = [data[i] for i in selected_rows]
-    #     # convert list of dict to dataframe
-    #     data_df = pd.DataFrame(selected_data)
-    #     data_df["time"] = pd.to_datetime(data_df["time"])
-    #     # filter only rows that are selected and preserve the selection order
-    #     df_selected = pd.merge(data_df["time"],cardio_db, how="left", on="time", sort=False)
-    #     # convert string of r_amplitudes to list of int
-    #     speed_list = list(df_selected['conduction_speed_str'].apply(lambda x: list(map(float, x.split(' ')))))
-
-    #     xlabels=[]
-    #     for i in range(len(df_selected)):
-    #         xlabels += [f'file_{i+1}']*len(speed_list[i])
-    #     speed_flattened = list(itertools.chain(*speed_list))
-    #     return px.strip(x=xlabels, y=speed_flattened, labels={'x':'', 'y':'cm/s'})
-
     @app.callback(
         Output('tab1_graphs', 'figure'),
         Input('datatable', 'selected_rows'),
@@ -292,15 +189,41 @@ def dashboard(cardio_db,port,base_directory):
         fig.update_yaxes(title_text="Milli Second", showgrid=False, row=2, col=1)
         fig.update_yaxes(title_text="cm/s", showgrid=False, row=2, col=2)
         return fig
+    
+    header = ['gain','active_area_in_percent','rec_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','triangular_index','tinn','lf','hf','lf_hf_ratio','lfnu','hfnu','total_power','vlf','csi','cvi','modified_csi','sd1','sd2','ratio_sd2_sd1']
+
+    @app.callback(
+        Output('feature_table', 'children'),
+        Input('datatable', 'selected_rows'),
+        State('datatable', 'data')
+    )
+    def feature_table(selected_rows, data):
+        if not selected_rows:
+            return ''
+        selected_data = [data[i] for i in selected_rows]
+        # convert list of dict to dataframe
+        data_df = pd.DataFrame(selected_data)
+        data_df["time"] = pd.to_datetime(data_df["time"])
+        # filter only rows that are selected and preserve the selection order
+        df_selected = pd.merge(data_df["time"], cardio_db, how="left", on="time", sort=False)
+        df = df_selected[header].applymap(lambda x: round(x,1) if x is not None else None)
+        df.insert(0,'file',[f'file_{i+1}' for i in range(len(df_selected))])
+        df_T = df.T
+        df_T.rename(columns=df_T.iloc[0], inplace=True)
+        df_T.drop(df_T.index[0], inplace=True)  
+        df_T.reset_index(drop=False, inplace=True)  
+
+        return dbc.Table.from_dataframe(df_T, id='feature_table', striped=True, bordered=True, hover=True)
 
     app.layout = html.Div([
         html.H1(children='CardioMEA Dashboard', style={'textAlign':'center'}),
         dbc.Row([          
             dbc.Card(
                 html.Div([
-                    # check list to choose cell lines and a switch to choose between single (latest) or multiple files per recording     
+                    # check list to choose cell lines     
                     checklist,
                     html.Br(),
+                    # switch to choose between single (latest) or multiple files per recording 
                     switch,
                     html.Br(),
                     html.H4("List of processed files"),
@@ -312,50 +235,18 @@ def dashboard(cardio_db,port,base_directory):
             ),
         ], justify="center"),
         html.Br(),
-        # dbc.Row(
-        #     dbc.CardGroup([
-        #         dbc.Card([
-        #             dbc.CardBody([
-        #                 html.H4("R amplitudes", style={'textAlign':'center'}),
-        #                 dcc.Graph(id='r_amp_graph'),
-        #             ]),
-        #         ]),
-        #         dbc.Card([
-        #             dbc.CardBody([
-        #                 html.H4("R widths", style={'textAlign':'center'}),
-        #                 dcc.Graph(id='r_width_graph'),
-        #             ]),
-        #         ]),
-        #     ], style={"width": "95%"}),
-        #     justify="center",
-        # ),
-        # dbc.Row(
-        #     dbc.CardGroup([
-        #         dbc.Card([
-        #             dbc.CardBody([
-        #                 html.H4("FPDs", style={'textAlign':'center'}),
-        #                 dcc.Graph(id='fpd_graph'),
-        #             ]),
-        #         ]),
-        #         dbc.Card([
-        #             dbc.CardBody([
-        #             html.H4("Conduction speed", style={'textAlign':'center'}),
-        #             dcc.Graph(id='conduction_graph'),
-        #             ]),
-        #         ]),
-        #     ], style={"width": "95%"}),
-        #     justify="center",
-        # ),
         dbc.Row(
             dbc.CardGroup([
                 dbc.Card(
-                    dbc.Tabs(
-                        [
-                            dbc.Tab(dcc.Graph(id='tab1_graphs'), label="Data distribution"),
-                            dbc.Tab(html.H4('Here comes recording info'), label="Recording info"),
-                            dbc.Tab(html.H4('Here comes feature analysis'), label="Feature analysis"),
-                        ], 
-                    ),
+                    dbc.Tabs([                    
+                        dbc.Tab(dcc.Graph(id='tab1_graphs'), label="Data distribution"),
+                        dbc.Tab([
+                            html.Div(id='feature_table',children=[],style={"overflow": "scroll"}), 
+                            html.H5('Click on the link below to see documentations of the HRV features.'),
+                            dcc.Link('Link to the HRV documentation', href="https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html"),
+                        ], label="Recording info"),
+                        dbc.Tab(html.H4('Here comes feature analysis'), label="Feature analysis"),
+                    ]),
                 ),
             ], style={"width": "97%"}),
             justify="center",
