@@ -41,7 +41,10 @@ def list_rec_files_pipeline(**kwargs) -> Pipeline:
         ),
         node(
             func=write_yaml_file,
-            inputs=["counter"],
+            inputs=[
+                "counter",
+                "params:nCPUs",
+            ],
             outputs=None,
             tags=["yaml","write","files"],
             name="write_yaml_file",         
@@ -164,7 +167,7 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "n_beats",
                 "params:tablename"
             ],
-            outputs=None,
+            outputs="dummy_for_pipe",
             tags=["upload","data","SQL"],
             name="upload_to_sql_server",
         ),
@@ -176,11 +179,18 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
     with open("conf/base/file_count.yml", "r") as f:
         content = yaml.safe_load(f)
     n_files = content['n_files']
+    nCPUs = content['n_CPUs']
 
     p_list = Pipeline([])
+    for i in range(n_files):   
+        session = int(i/nCPUs) 
+        if session==0:
+            pipe_input = 'first_pipe_input'
+            pipe_output = f'pipe_id_{i}_{i+nCPUs}'
+        else:
+            pipe_input = f'pipe_id_{i-nCPUs}_{i}'
+            pipe_output = f'pipe_id_{i}_{i+nCPUs}'
 
-
-    for i in range(n_files):
         parse_rec_file_info_partial = partial(parse_rec_file_info,index=i)
         update_wrapper(parse_rec_file_info_partial,parse_rec_file_info)
 
@@ -194,6 +204,7 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
                 func=parse_rec_file_info_partial,
                 inputs=[
                     "data_catalog_full", 
+                    pipe_input,
                 ],
                 outputs=[
                     rec_info_key,
@@ -218,7 +229,7 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
                 'signals.s_freq': 'signals.s_freq',
                 'tablename': 'tablename',
             },
-            outputs=None,
+            outputs={'dummy_for_pipe': pipe_output},
             namespace=pipeline_key,
         )
 

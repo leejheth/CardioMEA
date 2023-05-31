@@ -16,3 +16,9 @@ cardio_db:
   type: pandas.SQLQueryDataSet
   sql: "SELECT * FROM features"
   credentials: db_credentials
+
+first_pipe_input:
+  type: MemoryDataSet
+
+dummy_for_pipe:
+  type: MemoryDataSet

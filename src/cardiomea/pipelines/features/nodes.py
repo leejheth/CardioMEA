@@ -57,15 +57,18 @@ def list_rec_files(data_catalog,base_directory,ext):
     return data_catalog_full, len(data_catalog_full)
 
 
-def write_yaml_file(counter):
+def write_yaml_file(counter, nCPUs):
     """Write a yaml file that contains the number of recording files."""
-    data = dict(n_files = counter)
+    data = dict([
+        ("n_files", counter),
+        ("n_CPUs", nCPUs)
+    ])
 
     with open('conf/base/file_count.yml', 'w') as f:
         yaml.dump(data, f)
 
 
-def parse_rec_file_info(data_catalog_full, index):
+def parse_rec_file_info(data_catalog_full, dummy, index):
     """Parse the information of a recording file.
 
     Args:
@@ -579,3 +582,5 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
         if conn is not None:
             conn.close()
             print('Database connection closed.')
+    
+    return 1
