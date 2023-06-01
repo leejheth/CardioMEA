@@ -299,11 +299,13 @@ def get_FP_wave_features(FP_waves,before_R,T_from,T_to,s_freq):
     R_amplitudes=[]
     R_widths=[]
     FPDs=[]
-    for wave in FP_waves:
-        R_amplitude, R_width, FPD = _FP_wave_features(wave,before_R,T_from,T_to,s_freq)
-        R_amplitudes.append(R_amplitude)
-        R_widths.append(R_width)
-        FPDs.append(FPD)
+
+    if FP_waves: # if not empty list
+        for wave in FP_waves:
+            R_amplitude, R_width, FPD = _FP_wave_features(wave,before_R,T_from,T_to,s_freq)
+            R_amplitudes.append(R_amplitude)
+            R_widths.append(R_width)
+            FPDs.append(FPD)
 
     return R_amplitudes, R_widths, FPDs
 
@@ -411,59 +413,62 @@ def get_conduction_speed(sync_timestamps,electrodes_info_updated,s_freq):
         speed_list (list): list of conduction speed estimated in each beat. (unit of each data point: cm/s)
         n_beats (int): Number of beats.
     """
-    beat_clusters = np.vstack(sync_timestamps)
-    n_beats = len(sync_timestamps[0])
-    x_locs = electrodes_info_updated['x_locs']
-    y_locs = electrodes_info_updated['y_locs']
+    if not sync_timestamps: # if sync_timestamps is an empty list
+        return [], 0
+    else: 
+        beat_clusters = np.vstack(sync_timestamps)
+        n_beats = len(sync_timestamps[0])
+        x_locs = electrodes_info_updated['x_locs']
+        y_locs = electrodes_info_updated['y_locs']
 
-    def cone_surface(x, y, x_p, y_p, a, b, c):
-        return (a*(x-x_p)**2 + b*(y-y_p)**2)**0.5 + c
+        def cone_surface(x, y, x_p, y_p, a, b, c):
+            return (a*(x-x_p)**2 + b*(y-y_p)**2)**0.5 + c
 
-    model = Model(cone_surface, independent_vars=['x', 'y'])
+        model = Model(cone_surface, independent_vars=['x', 'y'])
 
-    speed_list = []
-    for beat in range(n_beats):
-        # activation time in seconds
-        t_data = (beat_clusters[:,beat]-min(beat_clusters[:,beat]))/s_freq 
+        speed_list = []
+        for beat in range(n_beats):
+            # activation time in seconds
+            t_data = (beat_clusters[:,beat]-min(beat_clusters[:,beat]))/s_freq 
 
-        # define parameters and limits
-        params = Parameters()
-        params.add('x_p', value=0.2, min=-0.1, max=0.5)
-        params.add('y_p', value=0.1, min=-0.2, max=0.4)
-        params.add('a', value=1, min=1e-4)
-        params.add('b', value=1, min=1e-4)
-        params.add('c', value=1)
+            # define parameters and limits
+            params = Parameters()
+            params.add('x_p', value=0.2, min=-0.1, max=0.5)
+            params.add('y_p', value=0.1, min=-0.2, max=0.4)
+            params.add('a', value=1, min=1e-4)
+            params.add('b', value=1, min=1e-4)
+            params.add('c', value=1)
 
-        # x, y locations in cm units
-        x_locs_cm = np.array(x_locs)*1e-4
-        y_locs_cm = np.array(y_locs)*1e-4
+            # x, y locations in cm units
+            x_locs_cm = np.array(x_locs)*1e-4
+            y_locs_cm = np.array(y_locs)*1e-4
 
-        # fit model to the data
-        result = model.fit(t_data, params, x=x_locs_cm, y=y_locs_cm)
+            # fit model to the data
+            result = model.fit(t_data, params, x=x_locs_cm, y=y_locs_cm)
 
-        # get estimated parameter values
-        x_p, y_p, a, b, c = [i.value for i in result.params.values()]
+            # get estimated parameter values
+            x_p, y_p, a, b, c = [i.value for i in result.params.values()]
 
-        x, y = sym.symbols("x,y", real=True)
-        t_xy = (a*(x-x_p)**2 + b*(y-y_p)**2)**0.5 + c
+            x, y = sym.symbols("x,y", real=True)
+            t_xy = (a*(x-x_p)**2 + b*(y-y_p)**2)**0.5 + c
 
-        # calculate partial derivatives
-        t_partial_x_eq = sym.lambdify([x, y], t_xy.diff(x), "numpy")
-        t_partial_y_eq = sym.lambdify([x, y], t_xy.diff(y), "numpy")
+            # calculate partial derivatives
+            t_partial_x_eq = sym.lambdify([x, y], t_xy.diff(x), "numpy")
+            t_partial_y_eq = sym.lambdify([x, y], t_xy.diff(y), "numpy")
 
-        T_partial_x = t_partial_x_eq(x_locs_cm,y_locs_cm) 
-        T_partial_y = t_partial_y_eq(x_locs_cm,y_locs_cm)
+            T_partial_x = t_partial_x_eq(x_locs_cm,y_locs_cm) 
+            T_partial_y = t_partial_y_eq(x_locs_cm,y_locs_cm)
 
-        # calculate dx/dT and dy/dT (conduction velocity)
-        velocity_x = T_partial_x / (T_partial_x**2 + T_partial_y**2)
-        velocity_y = T_partial_y / (T_partial_x**2 + T_partial_y**2)
+            # calculate dx/dT and dy/dT (conduction velocity)
+            velocity_x = T_partial_x / (T_partial_x**2 + T_partial_y**2)
+            velocity_y = T_partial_y / (T_partial_x**2 + T_partial_y**2)
 
-        # calculate magnitude of the vector (conduction speed)
-        speed = np.sqrt(velocity_x**2 + velocity_y**2)
+            # calculate magnitude of the vector (conduction speed)
+            speed = np.sqrt(velocity_x**2 + velocity_y**2)
 
-        speed_list.append(np.mean(speed))
-    
-    return speed_list, n_beats
+            speed_list.append(np.mean(speed))
+        
+        return speed_list, n_beats
 
 
 def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_info_updated,active_area,R_amplitudes,R_widths,FPDs,HRV_features,conduction_speed,n_beats,tablename):
