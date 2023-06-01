@@ -18,7 +18,9 @@ cardio_db:
   credentials: db_credentials
 
 first_pipe_input:
-  type: MemoryDataSet
+  type: pickle.PickleDataSet
+  filepath: data/01_raw/dummy.pkl
+  backend: pickle
 
 dummy_for_pipe:
   type: MemoryDataSet
