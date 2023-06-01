@@ -338,18 +338,19 @@ def _FP_wave_features(wave,before_R,T_from,T_to,s_freq):
     return R_amplitude, R_width, FPD
 
 
-def get_HRV_features(sync_timestamps):
+def get_HRV_features(sync_timestamps,s_freq):
     """Extract heart rate variability (HRV) features.
     
     Args:
         sync_timestamps (list): List of timestamps of R peaks that are synchronous.
+        s_freq (int): Sampling frequency of the signals.
 
     Returns:
         HRV_features (dict): Dictionary of HRV features.
     """
     res=[]
     for timestamps in sync_timestamps:
-        res.append(_hrv_features(timestamps))
+        res.append(_hrv_features(timestamps,s_freq))
 
     # Create a defaultdict to store mean values
     HRV_features = defaultdict(int)
@@ -366,11 +367,12 @@ def get_HRV_features(sync_timestamps):
     # return pd.DataFrame.from_dict(dict(HRV_features), orient='index').T
 
 
-def _hrv_features(timestamps):
+def _hrv_features(timestamps,s_freq):
     """Extract HRV features from a single channel.
     Documentation that explains the features: https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html
     """
-    RR_intervals = np.diff(timestamps)
+    # get RR intervale in milliseconds
+    RR_intervals = 1e3*np.diff(timestamps)/s_freq
     
     try:
         # get time domain features

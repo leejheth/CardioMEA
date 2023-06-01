@@ -131,6 +131,7 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
             func=get_HRV_features,
             inputs=[
                 "R_timestamps", 
+                "params:signals.s_freq",
             ],
             outputs="HRV_features",
             tags=["HRV"],
