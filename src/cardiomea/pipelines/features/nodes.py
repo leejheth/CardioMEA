@@ -319,20 +319,20 @@ def _FP_wave_features(wave,before_R,T_from,T_to,s_freq):
     
     # get an estimate of R spike width (duration of deviation from baseline)
     b, a = signal.butter(3,[100*2/s_freq,2000*2/s_freq],btype='band')
-    R_filtered = signal.filtfilt(b, a, wave)
     try:
+        R_filtered = signal.filtfilt(b, a, wave)
         R_width = 1e3*(np.where(abs(R_filtered)>30)[0][-1]-np.where(abs(R_filtered)>30)[0][0])/s_freq # in milliseconds
     except Exception:
         R_width = np.nan
 
     # get FPD
     b, a = signal.butter(3,[3*2/s_freq,100*2/s_freq],btype='band')
-    T_filtered = signal.filtfilt(b, a, wave)
-    # Tpeak, _ = _peakseek(T_filtered[before_R+T_from:before_R+T_to], minpeakdist=len(wave), minpeakh=30) # find just 1 peak
-    Tpeak, _ = find_peaks(T_filtered[before_R+T_from:before_R+T_to], distance=len(wave), prominence=15) # find just 1 peak
-    if Tpeak.size > 0:
+    try:
+        T_filtered = signal.filtfilt(b, a, wave)
+        # Tpeak, _ = _peakseek(T_filtered[before_R+T_from:before_R+T_to], minpeakdist=len(wave), minpeakh=30) # find just 1 peak
+        Tpeak, _ = find_peaks(T_filtered[before_R+T_from:before_R+T_to], distance=len(wave), prominence=15) # find just 1 peak
         FPD = 1e3*(Tpeak[0]+T_from)/s_freq # in milliseconds
-    else: # if no T peak is found
+    except Exception:
         FPD = np.nan
         
     return R_amplitude, R_width, FPD
