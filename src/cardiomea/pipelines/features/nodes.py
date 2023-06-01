@@ -300,12 +300,11 @@ def get_FP_wave_features(FP_waves,before_R,T_from,T_to,s_freq):
     R_widths=[]
     FPDs=[]
 
-    if FP_waves: # if not empty list
-        for wave in FP_waves:
-            R_amplitude, R_width, FPD = _FP_wave_features(wave,before_R,T_from,T_to,s_freq)
-            R_amplitudes.append(R_amplitude)
-            R_widths.append(R_width)
-            FPDs.append(FPD)
+    for wave in FP_waves:
+        R_amplitude, R_width, FPD = _FP_wave_features(wave,before_R,T_from,T_to,s_freq)
+        R_amplitudes.append(R_amplitude)
+        R_widths.append(R_width)
+        FPDs.append(FPD)
 
     return R_amplitudes, R_widths, FPDs
 
@@ -313,7 +312,10 @@ def get_FP_wave_features(FP_waves,before_R,T_from,T_to,s_freq):
 def _FP_wave_features(wave,before_R,T_from,T_to,s_freq):
     """Extract features from a single FP wave."""
     # get R peak-to-peak amplitude
-    R_amplitude = wave[before_R]-np.min(wave)
+    try:
+        R_amplitude = wave[before_R]-np.min(wave)
+    except Exception:
+        R_amplitude = np.nan
     
     # get an estimate of R spike width (duration of deviation from baseline)
     b, a = signal.butter(3,[100*2/s_freq,2000*2/s_freq],btype='band')
