@@ -523,7 +523,7 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
     sql_columns.extend(HRV_col)
 
     # convert to integers to prevent overflow
-    R_amplitudes_int = list(map(int,R_amplitudes))
+    R_amplitudes_int = [int(R_amplitudes[i]) if not np.isnan(R_amplitudes[i]) else R_amplitudes[i] for i in range(len(R_amplitudes))]
 
     # prepare data in appropriate forms
     cell_line = rec_info['cell_line']
