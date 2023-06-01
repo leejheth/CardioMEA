@@ -242,7 +242,7 @@ def create_single_pipeline(**kwargs) -> Pipeline:
             inputs=[
                 "data_catalog_full", 
                 "first_pipe_input",
-                "param:file_index",
+                "params:file_index",
             ],
             outputs=[
                 "rec_info",
