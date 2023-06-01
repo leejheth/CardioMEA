@@ -531,7 +531,7 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
     note = rec_info['note']
     n_electrodes_sync = electrodes_info_updated['num_channels']
     R_amplitudes_str = ' '.join(map(str, R_amplitudes_int))
-    R_amplitudes_mean = np.mean(R_amplitudes_int)
+    R_amplitudes_mean = np.nanmean(R_amplitudes_int)
     R_amplitudes_std = np.std(R_amplitudes_int)
     R_widths_str = ' '.join(map(str, R_widths))
     R_widths_mean = np.nanmean(R_widths)
