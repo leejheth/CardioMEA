@@ -275,7 +275,10 @@ def get_FP_waves(signals,sync_timestamps,sync_channelIDs,before_R,after_R):
 def _FP_wave(signal_single,timestamps,before_R,after_R):
     """Get an average FP wave from a single channel."""
     waves = [signal_single[peak_loc-before_R:peak_loc+after_R] for peak_loc in timestamps if (peak_loc-before_R)>0 and (peak_loc+after_R)<=len(signal_single)] 
-    return list(np.mean(np.vstack(waves),axis=0))
+    if not waves:
+        return []
+    else:
+        return list(np.mean(np.vstack(waves),axis=0))
 
 
 def get_FP_wave_features(FP_waves,before_R,T_from,T_to,s_freq):
