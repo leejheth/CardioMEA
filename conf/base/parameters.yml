@@ -5,4 +5,6 @@ raw_data:
 
 nCPUs: 20
 
+file_index: 0
+
 tablename: 'features'

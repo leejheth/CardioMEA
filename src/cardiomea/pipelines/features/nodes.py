@@ -53,7 +53,7 @@ def list_rec_files(data_catalog,base_directory,ext):
             print(f"No recording files are found in {base_directory+data_catalog.loc[row,'file_path']}")
 
     print(f"A total of {len(data_catalog_full)} recording files are found.")
-
+  
     return data_catalog_full, len(data_catalog_full)
 
 
