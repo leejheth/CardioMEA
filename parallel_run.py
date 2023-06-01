@@ -15,7 +15,7 @@ nCPUs = content['n_CPUs']
 
 def run_pipeline(index):    
     session = KedroSession.create(extra_params={"file_index": index})
-    session.run(pipeline_name="list_rec_files", runner=SequentialRunner())
+    session.run(pipeline_name="single_pipeline", runner=SequentialRunner())
 
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d, %H:%M:%S")
 print(f"Starting parallel processing of pipelines at {timestamp}.")
