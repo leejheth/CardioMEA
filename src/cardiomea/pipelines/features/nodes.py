@@ -37,23 +37,27 @@ def list_rec_files(data_catalog,base_directory,ext):
 
     Returns:
         data_catalog_full (pandas.DataFrame): Data catalog containing directory and other (names of cell lines, compound, etc.) information of recording files, as well as the full directory of the recording files.
+                                              Missing compound entries will be filled with 'absent'.
     """
     data_catalog_full = pd.DataFrame(columns=data_catalog.columns.to_list() + ['file_path_full'])
+   
     for row in range(len(data_catalog)):
         # list all files (with specified extension) in the directory
         rec_files = glob.glob(base_directory+str(data_catalog.loc[row,'file_path'])+"/*"+ext)
         
         # create a new dataframe that contains both existing and new data (full file directory)
-        try:
+        if rec_files:
             tmp = pd.concat([data_catalog.loc[[row]]]*len(rec_files), ignore_index=True)
             tmp["file_path_full"] = rec_files
             data_catalog_full = data_catalog_full.merge(tmp, how='outer')
-        except Exception as e:
-            print(e)
+        else:
             print(f"No recording files are found in {base_directory+data_catalog.loc[row,'file_path']}")
 
+    # replace NaN values in colume 'compound' to a string 'absent'
+    data_catalog_full['compound'].fillna('absent', inplace=True)
+
     print(f"A total of {len(data_catalog_full)} recording files are found.")
-  
+
     return data_catalog_full, len(data_catalog_full)
 
 
