@@ -49,6 +49,8 @@ def dashboard(cardio_db,port,base_directory):
         id='datatable',
         columns=columns,
         data=[],
+        page_size=10,    
+        page_current=0, 
         editable=False,
         row_selectable="multi",
         selected_rows=[],
@@ -62,9 +64,10 @@ def dashboard(cardio_db,port,base_directory):
         [
             Input("checklist", "value"),
             Input("latest_only", "value"),
+            Input("reset_button", "n_clicks")
         ],
     )
-    def reset_selected_rows(checklist, switch):
+    def reset_selected_rows(checklist, switch, reset):
         return []
 
     @app.callback(
@@ -190,7 +193,7 @@ def dashboard(cardio_db,port,base_directory):
         fig.update_yaxes(title_text="cm/s", showgrid=False, row=2, col=2)
         return fig
     
-    header = ['gain','active_area_in_percent','rec_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','triangular_index','tinn','lf','hf','lf_hf_ratio','lfnu','hfnu','total_power','vlf','csi','cvi','modified_csi','sd1','sd2','ratio_sd2_sd1']
+    header = ['gain','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','triangular_index','tinn','lf','hf','lf_hf_ratio','lfnu','hfnu','total_power','vlf','csi','cvi','modified_csi','sd1','sd2','ratio_sd2_sd1']
 
     @app.callback(
         Output('feature_table', 'children'),
@@ -229,9 +232,10 @@ def dashboard(cardio_db,port,base_directory):
                     html.H4("List of processed files"),
                     # table to show shorlisted files
                     table,
+                    dbc.Button("Reset selections", id="reset_button", color="primary", n_clicks=0),
                     html.Br(),
                     html.Div(id='selected_data',children=[]),      
-                ]), color="light", style={"width": "95%"},
+                ]), color="light", style={"width": "95%"}
             ),
         ], justify="center"),
         html.Br(),

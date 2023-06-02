@@ -114,6 +114,8 @@ def extract_data(file_path_full, start_frame, length, s_freq):
         signals (numpy.ndarray): Extracted signals.
         electrodes_info (dict): Dictionary containing the channel information (electrode ID, X and Y locations, number of electrodes used for recording).
         gain (int): Gain of the recording.
+        rec_duration (float): Duration of the recording (in seconds) in the file.
+        rec_proc_duration (float): Duration of the recording data (in seconds) that will be processed.
     """
     obj = h5py.File(file_path_full, mode='r')
 
@@ -153,7 +155,7 @@ def extract_data(file_path_full, start_frame, length, s_freq):
         warnings.warn(f"The start frame exceeds the length of data. Signals will be extracted from the start of the recording until MIN({length}-th frame, end-of-file) instead.")
         signals = (obj.get('sig')[channel_ids,0:min(length,num_frames)] * lsb).astype('float16')
 
-    return signals, electrodes_info, gain, num_frames/s_freq
+    return signals, electrodes_info, gain, num_frames/s_freq, signals.shape[1]/s_freq
 
 
 def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,s_freq):
@@ -364,7 +366,6 @@ def get_HRV_features(sync_timestamps,s_freq):
                 HRV_features[key] = None
 
     return dict(HRV_features)
-    # return pd.DataFrame.from_dict(dict(HRV_features), orient='index').T
 
 
 def _hrv_features(timestamps,s_freq):
@@ -375,25 +376,27 @@ def _hrv_features(timestamps,s_freq):
     RR_intervals = 1e3*np.diff(timestamps)/s_freq
     
     try:
-        # get time domain features
+        # get time domain features (use for >1min recordings)
         time_domain_features = hrva.get_time_domain_features(RR_intervals)
         
-        # get geometrical features
-        geometrical_features = hrva.get_geometrical_features(RR_intervals)
+        # get geometrical features (use for >20min recordings)
+        # geometrical_features = hrva.get_geometrical_features(RR_intervals)
         
-        # get frequency domain features
-        frequency_domain_features = hrva.get_frequency_domain_features(RR_intervals)
+        # get frequency domain features (use for >2min recordings)
+        # frequency_domain_features = hrva.get_frequency_domain_features(RR_intervals)
         
-        # get csi and cvi features
+        # get csi and cvi features (use for recordings containing 30, 50, 100 RR-intervals (or seconds))
         csi_cvi_features = hrva.get_csi_cvi_features(RR_intervals)
         
-        # get poincare plot features
-        poincare_plot_features = hrva.get_poincare_plot_features(RR_intervals)
+        # get poincare plot features (use for >5min recordings)
+        # poincare_plot_features = hrva.get_poincare_plot_features(RR_intervals)
 
-        all_hrv_features = {**time_domain_features, **geometrical_features, **frequency_domain_features, **csi_cvi_features, **poincare_plot_features}
+        # all_hrv_features = {**time_domain_features, **geometrical_features, **frequency_domain_features, **csi_cvi_features, **poincare_plot_features}
+        all_hrv_features = {**time_domain_features, **csi_cvi_features}
     
     except Exception:
-        keys = ['mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','triangular_index','tinn','lf','hf','lf_hf_ratio','lfnu','hfnu','total_power','vlf','csi','cvi','Modified_csi','sd1','sd2','ratio_sd2_sd1']
+        # keys = ['mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','triangular_index','tinn','lf','hf','lf_hf_ratio','lfnu','hfnu','total_power','vlf','csi','cvi','Modified_csi','sd1','sd2','ratio_sd2_sd1']
+        keys = ['mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','csi','cvi','Modified_csi']
         all_hrv_features = dict([])
         for key in keys:
             all_hrv_features.update({key:None})
@@ -475,7 +478,7 @@ def get_conduction_speed(sync_timestamps,electrodes_info_updated,s_freq):
         return speed_list, n_beats
 
 
-def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_info_updated,active_area,R_amplitudes,R_widths,FPDs,HRV_features,conduction_speed,n_beats,tablename):
+def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,rec_proc_duration,electrodes_info_updated,active_area,R_amplitudes,R_widths,FPDs,HRV_features,conduction_speed,n_beats,tablename):
     """Upload extracted feature data to SQL server.
     
     Args:
@@ -483,6 +486,7 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
         file_path_full (str): Full path to the recording file.
         gain (int): Gain of the recording.
         rec_duration (float): Duration of the recording in seconds.
+        rec_proc_duration (float): Duration of the fraction of recording (in seconds) that was processed.
         electrodes_info_updated (dict): Updated electrode information.
         active_area (float): Active area of the electrode (percentage).
         R_amplitudes (list): List of R peak amplitudes (in microvolts).
@@ -502,6 +506,7 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
         ['file_path_full', 'VARCHAR'],
         ['gain', 'SMALLINT'],
         ['rec_duration', 'DECIMAL(4,1)'],
+        ['rec_proc_duration', 'DECIMAL(4,1)'],
         ['n_electrodes_sync', 'SMALLINT'],
         ['active_area_in_percent', 'DECIMAL(4,1)'],
         ['R_amplitudes_str', 'VARCHAR'],
@@ -546,7 +551,7 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,electrodes_in
     conduction_speed_std = np.std(conduction_speed)
     timestamp = datetime.datetime.now()
 
-    values = [timestamp, cell_line, compound, note, file_path_full, gain, rec_duration, n_electrodes_sync, active_area, R_amplitudes_str, R_amplitudes_mean, R_amplitudes_std, R_widths_str, R_widths_mean, R_widths_std, FPDs_str, FPDs_mean, FPDs_std, conduction_speed_str, conduction_speed_mean, conduction_speed_std, n_beats]
+    values = [timestamp, cell_line, compound, note, file_path_full, gain, rec_duration, rec_proc_duration, n_electrodes_sync, active_area, R_amplitudes_str, R_amplitudes_mean, R_amplitudes_std, R_widths_str, R_widths_mean, R_widths_std, FPDs_str, FPDs_mean, FPDs_std, conduction_speed_str, conduction_speed_mean, conduction_speed_std, n_beats]
 
     HRV_values = [value for _, value in HRV_features.items()]
     

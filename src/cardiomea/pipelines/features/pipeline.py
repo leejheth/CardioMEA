@@ -66,6 +66,7 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "electrodes_info",
                 "gain",
                 "rec_duration",
+                "rec_proc_duration",
             ],
             tags=["extract","data","signals"],
             name="extract_data",
@@ -158,6 +159,7 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "file_path_full",
                 "gain",
                 "rec_duration",
+                "rec_proc_duration",
                 "electrodes_info_updated",
                 "active_area",
                 "R_amplitudes",
@@ -237,7 +239,7 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
     return p_list
 
 def create_single_pipeline(**kwargs) -> Pipeline:    
-    return pipeline([
+    parse_pipeline = pipeline([
         node(
             func=parse_rec_file_info,
             inputs=[
@@ -251,123 +253,7 @@ def create_single_pipeline(**kwargs) -> Pipeline:
             ],
             tags=["directory","files"],
             name="parse_rec_file_info",
-        ),
-        node(
-            func=extract_data,
-            inputs=[
-                "file_path_full", 
-                "params:signals.start_frame",
-                "params:signals.length",
-                "params:signals.s_freq",
-            ],
-            outputs=[
-                "signals",
-                "electrodes_info",
-                "gain",
-                "rec_duration",
-            ],
-            tags=["extract","data","signals"],
-            name="extract_data",
-        ),
-        node(
-            func=get_R_timestamps,
-            inputs=[
-                "signals", 
-                "electrodes_info",
-                "params:signals.factor",
-                "params:signals.min_peak_dist",
-                "params:signals.s_freq",
-            ],
-            outputs=[
-                "R_timestamps",
-                "channelIDs",
-                "electrodes_info_updated"
-            ],
-            tags=["R_timestamps","channelIDs"],
-            name="get_R_timestamps",
-        ),        
-        node(
-            func=get_active_area,
-            inputs=[
-                "electrodes_info", 
-                "channelIDs",
-            ],
-            outputs="active_area",
-            tags=["activity","network"],
-            name="get_active_area",
-        ),
-        node(
-            func=get_FP_waves,
-            inputs=[
-                "signals", 
-                "R_timestamps",
-                "channelIDs",
-                "params:signals.before_R",
-                "params:signals.after_R",
-            ],
-            outputs="FP_waves",
-            tags=["waveforms"],
-            name="get_FP_waves",
-        ),
-        node(
-            func=get_FP_wave_features,
-            inputs=[
-                "FP_waves", 
-                "params:signals.before_R",
-                "params:signals.T_from",
-                "params:signals.T_to",
-                "params:signals.s_freq",
-            ],
-            outputs=[
-                "R_amplitudes",
-                "R_widths",
-                "FPDs",
-            ],
-            tags=["R_spikes","waveforms"],
-            name="get_FP_wave_features",
-        ),
-        node(
-            func=get_HRV_features,
-            inputs=[
-                "R_timestamps", 
-            ],
-            outputs="HRV_features",
-            tags=["HRV"],
-            name="get_HRV_features",
-        ),
-        node(
-            func=get_conduction_speed,
-            inputs=[
-                "R_timestamps", 
-                "electrodes_info_updated",
-                "params:signals.s_freq",
-            ],
-            outputs=[
-                "conduction_speed",
-                "n_beats",
-            ],
-            tags=["conduction","propagation","R_spikes"],
-            name="get_conduction_speed",
-        ),
-        node(
-            func=upload_to_sql_server,
-            inputs=[
-                "rec_info",
-                "file_path_full",
-                "gain",
-                "rec_duration",
-                "electrodes_info_updated",
-                "active_area",
-                "R_amplitudes",
-                "R_widths",
-                "FPDs",
-                "HRV_features",
-                "conduction_speed",
-                "n_beats",
-                "params:tablename"
-            ],
-            outputs="dummy_for_pipe",
-            tags=["upload","data","SQL"],
-            name="upload_to_sql_server",
-        ),
+        )
     ])
+    
+    return parse_pipeline + extract_features_pipeline()
