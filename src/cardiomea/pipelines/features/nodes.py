@@ -131,7 +131,7 @@ def extract_data(file_path_full, start_frame, length, s_freq):
     channel_ids = channels[routed_idxs]
     electrode_ids = list(electrodes[routed_idxs])
     num_channels = len(electrode_ids)
-    num_frames = len(obj.get('sig')[0,:])
+    num_frames = obj.get('sig').shape[1]
     x_locs = list(mapping['x'][routed_idxs])
     y_locs = list(mapping['y'][routed_idxs])
 
@@ -148,7 +148,6 @@ def extract_data(file_path_full, start_frame, length, s_freq):
         lsb = obj['settings']['lsb'][0] * 1e6
     else:
         lsb = 3.3 / (1024 * gain) * 1e6
-
     
     # get raw voltage traces from all recording channels
     if start_frame < (num_frames-1):

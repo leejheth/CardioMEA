@@ -16,6 +16,7 @@ log.setLevel(logging.ERROR)
 
 def dashboard(cardio_db,port,base_directory):
     cell_lines = cardio_db["cell_line"].unique()
+    compounds = cardio_db["compound"].unique()
     cardio_db["file_path"] = cardio_db["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
     col_simple = ['cell_line','compound','file_path','time','note']
     columns = [{'name': i, 'id': i} for i in col_simple]
@@ -28,11 +29,31 @@ def dashboard(cardio_db,port,base_directory):
             dbc.Checklist(
                 options=[{"label": c, "value": c} for c in cell_lines],
                 value=[],
-                id="checklist",
+                id="checklist_cell_lines",
+                inline=True,
+            ),
+            html.Br(),
+            html.H4("Choose compounds"),
+            dbc.Checklist(
+                # options=[{"label": c, "value": c} for c in compounds],
+                options=[],
+                # select all by default
+                value=[],
+                id="checklist_compounds",
                 inline=True,
             ),
         ]
     )
+
+    @app.callback(
+        Output("checklist_compounds", "options"),
+        Output("checklist_compounds", "value"),
+        Input("checklist_cell_lines", "value"),
+    )
+    def update_compound_list(checklist_cell_lines):
+        compound_list = cardio_db["compound"].loc[cardio_db["cell_line"].isin(checklist_cell_lines)].unique()
+        options = [{'label': c, 'value': c} for c in compound_list]
+        return options, compound_list
 
     switch = html.Div(
         [
@@ -47,7 +68,7 @@ def dashboard(cardio_db,port,base_directory):
     # Define data table with checkbox column
     table = dash_table.DataTable(
         id='datatable',
-        columns=columns,
+        columns=[{"name": i, "id": i} for i in ['cell_line','compound','file_path','time_processed','note']],
         data=[],
         page_size=10,    
         page_current=0, 
@@ -62,29 +83,34 @@ def dashboard(cardio_db,port,base_directory):
     @app.callback(
         Output("datatable", "selected_rows"),
         [
-            Input("checklist", "value"),
+            Input("checklist_cell_lines", "value"),
+            Input("checklist_compounds", "value"),
             Input("latest_only", "value"),
             Input("reset_button", "n_clicks")
         ],
     )
-    def reset_selected_rows(checklist, switch, reset):
+    def reset_selected_rows(checklist_cell_lines, checklist_compounds, switch, reset):
         return []
 
     @app.callback(
         Output("datatable", "data"),
         [
-            Input("checklist", "value"),
+            Input("checklist_cell_lines", "value"),
+            Input("checklist_compounds", "value"),
             Input("latest_only", "value"),
         ],
     )
-    def update_table(selected_values, switch_value):
+    def update_table(checklist_cell_lines, checklist_compounds, switch_value):
+        # show only the latest data if switch is on
         if switch_value:
             df = cardio_db.sort_values('time').groupby('file_path').tail(1).reset_index(drop=True)
         else:
             df = cardio_db.copy()
         # filter only cell lines that are selected 
-        df_selected = df.loc[df["cell_line"].isin(selected_values), col_simple]
-        table_data = [{c['id']: df_selected[c['name']].iloc[i] for c in columns} for i in range(len(df_selected))]
+        df_selected = df.loc[df["cell_line"].isin(checklist_cell_lines) & df["compound"].isin(checklist_compounds), col_simple]
+        # add a column with time in string format for display
+        df_selected["time_processed"] = df_selected["time"].apply(lambda x: x.strftime("%Y-%m-%d %H:%M:%S"))
+        table_data = [{c['id']: df_selected[c['name']].iloc[i] for c in columns+[{'name': 'time_processed', 'id': 'time_processed'}]} for i in range(len(df_selected))]
 
         return table_data
 
@@ -193,14 +219,15 @@ def dashboard(cardio_db,port,base_directory):
         fig.update_yaxes(title_text="cm/s", showgrid=False, row=2, col=2)
         return fig
     
-    header = ['gain','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','triangular_index','tinn','lf','hf','lf_hf_ratio','lfnu','hfnu','total_power','vlf','csi','cvi','modified_csi','sd1','sd2','ratio_sd2_sd1']
+    # header = ['gain','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','triangular_index','tinn','lf','hf','lf_hf_ratio','lfnu','hfnu','total_power','vlf','csi','cvi','modified_csi','sd1','sd2','ratio_sd2_sd1']
+    header = ['gain','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','csi','cvi','modified_csi']
 
     @app.callback(
         Output('feature_table', 'children'),
         Input('datatable', 'selected_rows'),
         State('datatable', 'data')
     )
-    def feature_table(selected_rows, data):
+    def tab2_feature_table(selected_rows, data):
         if not selected_rows:
             return ''
         selected_data = [data[i] for i in selected_rows]
@@ -230,7 +257,7 @@ def dashboard(cardio_db,port,base_directory):
                     switch,
                     html.Br(),
                     html.H4("List of processed files"),
-                    # table to show shorlisted files
+                    # table to show data
                     table,
                     dbc.Button("Reset selections", id="reset_button", color="primary", n_clicks=0),
                     html.Br(),
