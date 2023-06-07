@@ -14,10 +14,9 @@ import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
-def dashboard(cardio_db,port,base_directory):
-    cell_lines = cardio_db["cell_line"].unique()
-    compounds = cardio_db["compound"].unique()
-    cardio_db["file_path"] = cardio_db["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
+def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
+    cell_lines = cardio_db_FP["cell_line"].unique()
+    cardio_db_FP["file_path"] = cardio_db_FP["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
     col_simple = ['cell_line','compound','file_path','time','note']
     columns = [{'name': i, 'id': i} for i in col_simple]
     
@@ -51,7 +50,7 @@ def dashboard(cardio_db,port,base_directory):
         Input("checklist_cell_lines", "value"),
     )
     def update_compound_list(checklist_cell_lines):
-        compound_list = cardio_db["compound"].loc[cardio_db["cell_line"].isin(checklist_cell_lines)].unique()
+        compound_list = cardio_db_FP["compound"].loc[cardio_db_FP["cell_line"].isin(checklist_cell_lines)].unique()
         options = [{'label': c, 'value': c} for c in compound_list]
         return options, compound_list
 
@@ -103,9 +102,9 @@ def dashboard(cardio_db,port,base_directory):
     def update_table(checklist_cell_lines, checklist_compounds, switch_value):
         # show only the latest data if switch is on
         if switch_value:
-            df = cardio_db.sort_values('time').groupby('file_path').tail(1).reset_index(drop=True)
+            df = cardio_db_FP.sort_values('time').groupby('file_path').tail(1).reset_index(drop=True)
         else:
-            df = cardio_db.copy()
+            df = cardio_db_FP.copy()
         # filter only cell lines that are selected 
         df_selected = df.loc[df["cell_line"].isin(checklist_cell_lines) & df["compound"].isin(checklist_compounds), col_simple]
         # add a column with time in string format for display
@@ -154,7 +153,7 @@ def dashboard(cardio_db,port,base_directory):
         data_df = pd.DataFrame(selected_data)
         data_df["time"] = pd.to_datetime(data_df["time"])
         # filter only rows that are selected and preserve the selection order
-        df_selected = pd.merge(data_df["time"],cardio_db, how="left", on="time", sort=False)
+        df_selected = pd.merge(data_df["time"],cardio_db_FP, how="left", on="time", sort=False)
         
         # convert string of r_amplitudes to list of int
         r_amp_list = list(df_selected['r_amplitudes_str'].apply(lambda x: list(map(int, x.split(' ')))))
@@ -235,7 +234,7 @@ def dashboard(cardio_db,port,base_directory):
         data_df = pd.DataFrame(selected_data)
         data_df["time"] = pd.to_datetime(data_df["time"])
         # filter only rows that are selected and preserve the selection order
-        df_selected = pd.merge(data_df["time"], cardio_db, how="left", on="time", sort=False)
+        df_selected = pd.merge(data_df["time"], cardio_db_FP, how="left", on="time", sort=False)
         df = df_selected[header].applymap(lambda x: round(x,1) if x is not None else None)
         df.insert(0,'file',[f'file_{i+1}' for i in range(len(df_selected))])
         df_T = df.T
@@ -247,42 +246,46 @@ def dashboard(cardio_db,port,base_directory):
 
     app.layout = html.Div([
         html.H1(children='CardioMEA Dashboard', style={'textAlign':'center'}),
-        dbc.Row([          
-            dbc.Card(
-                html.Div([
-                    # check list to choose cell lines     
-                    checklist,
-                    html.Br(),
-                    # switch to choose between single (latest) or multiple files per recording 
-                    switch,
-                    html.Br(),
-                    html.H4("List of processed files"),
-                    # table to show data
-                    table,
-                    dbc.Button("Reset selections", id="reset_button", color="primary", n_clicks=0),
-                    html.Br(),
-                    html.Div(id='selected_data',children=[]),      
-                ]), color="light", style={"width": "95%"}
-            ),
-        ], justify="center"),
-        html.Br(),
-        dbc.Row(
-            dbc.CardGroup([
-                dbc.Card(
-                    dbc.Tabs([                    
-                        dbc.Tab(dcc.Graph(id='tab1_graphs'), label="Data distribution", activeTabClassName="fw-bold"),
-                        dbc.Tab([
-                            html.Div(id='feature_table',children=[],style={"overflow": "scroll"}), 
-                            html.H5('Click on the link below to see documentations of the HRV features.'),
-                            dcc.Link('Link to the HRV documentation', href="https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html"),
-                        ], label="Recording info", activeTabClassName="fw-bold"),
-                        dbc.Tab(html.H4('Here comes feature analysis'), label="Feature analysis", activeTabClassName="fw-bold"),
-                    ]),
-                ),
-            ], style={"width": "97%"}),
-            justify="center",
-        ),
+        dcc.Tabs([
+            dcc.Tab([       
+                dbc.Row([   
+                    dbc.Card(
+                        html.Div([
+                            # check list to choose cell lines     
+                            checklist,
+                            html.Br(),
+                            # switch to choose between single (latest) or multiple files per recording 
+                            switch,
+                            html.Br(),
+                            html.H4("List of processed files"),
+                            # table to show data
+                            table,
+                            dbc.Button("Reset selections", id="reset_button", color="primary", n_clicks=0),
+                            html.Br(),
+                            html.Div(id='selected_data',children=[]),      
+                        ]), 
+                    color="light", style={"width": "98%"}),
+                ], justify="center"),
+                html.Br(),
+                dbc.Row([
+                    dbc.Card(
+                        dbc.Tabs([                    
+                            dbc.Tab(dcc.Graph(id='tab1_graphs'), label="Data distribution", activeTabClassName="fw-bold"),
+                            dbc.Tab([
+                                html.Div(id='feature_table',children=[],style={"overflow": "scroll"}), 
+                                html.H5('Click on the link below to see documentations of the HRV features.'),
+                                dcc.Link('Link to the HRV documentation', href="https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html"),
+                            ], label="Recording info", activeTabClassName="fw-bold"),
+                            dbc.Tab(html.H4('Here comes feature analysis'), label="Feature analysis", activeTabClassName="fw-bold"),
+                        ]), 
+                    style={"width": "98%"}),
+                ], justify="center"), 
+            ], label='Extracellular Analysis', style={'borderBottom':'1px solid #d6d6d6','padding':'6px','fontWeight':'bold'}, selected_style={'borderTop':'1px solid #d6d6d6','borderBottom':'1px solid #d6d6d6','backgroundColor':'#119DFF','color':'white','padding':'6px','fontWeight':'bold'}),
+            dcc.Tab(label='Intracellular Analysis', style={'borderBottom':'1px solid #d6d6d6','padding':'6px','fontWeight':'bold'}, selected_style={'borderTop':'1px solid #d6d6d6','borderBottom':'1px solid #d6d6d6','backgroundColor':'#119DFF','color':'white','padding':'6px','fontWeight':'bold'}),
+        ], style={'height': '44px'}),
     ])
+
+    
 
     # open the URL with the default web browser of the user’s computer
     print("Ctrl + C to exit.")

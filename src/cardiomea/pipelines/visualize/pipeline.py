@@ -18,7 +18,8 @@ def create_dashboard_pipeline(**kwargs) -> Pipeline:
         node(
             func=dashboard,
             inputs=[
-                "cardio_db",
+                "cardio_db_FP",
+                "cardio_db_AP",
                 "params:web_port", 
                 "params:raw_data.base_directory"
             ],
