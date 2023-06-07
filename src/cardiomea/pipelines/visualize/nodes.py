@@ -270,13 +270,13 @@ def dashboard(cardio_db,port,base_directory):
             dbc.CardGroup([
                 dbc.Card(
                     dbc.Tabs([                    
-                        dbc.Tab(dcc.Graph(id='tab1_graphs'), label="Data distribution"),
+                        dbc.Tab(dcc.Graph(id='tab1_graphs'), label="Data distribution", activeTabClassName="fw-bold"),
                         dbc.Tab([
                             html.Div(id='feature_table',children=[],style={"overflow": "scroll"}), 
                             html.H5('Click on the link below to see documentations of the HRV features.'),
                             dcc.Link('Link to the HRV documentation', href="https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html"),
-                        ], label="Recording info"),
-                        dbc.Tab(html.H4('Here comes feature analysis'), label="Feature analysis"),
+                        ], label="Recording info", activeTabClassName="fw-bold"),
+                        dbc.Tab(html.H4('Here comes feature analysis'), label="Feature analysis", activeTabClassName="fw-bold"),
                     ]),
                 ),
             ], style={"width": "97%"}),

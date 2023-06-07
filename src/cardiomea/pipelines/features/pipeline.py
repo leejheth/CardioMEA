@@ -18,6 +18,9 @@ from cardiomea.pipelines.features.nodes import (
     get_HRV_features,
     get_conduction_speed,
     upload_to_sql_server,
+    get_AP_waves,
+    get_AP_wave_features,
+    upload_AP_features_to_sql_server,
 )
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -30,6 +33,7 @@ def list_rec_files_pipeline(**kwargs) -> Pipeline:
             inputs=[
                 "data_catalog", 
                 "params:raw_data.base_directory",
+                "params:raw_data.file_name_pattern",
                 "params:raw_data.file_extension",
             ],
             outputs=[
@@ -168,7 +172,7 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "HRV_features",
                 "conduction_speed",
                 "n_beats",
-                "params:tablename"
+                "params:tablename.FP"
             ],
             outputs="dummy_for_pipe",
             tags=["upload","data","SQL"],
@@ -230,7 +234,7 @@ def create_auto_pipeline(**kwargs) -> Pipeline:
                 'signals.T_from': 'signals.T_from',
                 'signals.T_to': 'signals.T_to',
                 'signals.s_freq': 'signals.s_freq',
-                'tablename': 'tablename',
+                'tablename.FP': 'tablename.FP',
             },
             outputs={'dummy_for_pipe': pipe_output},
             namespace=pipeline_key,
@@ -257,3 +261,88 @@ def create_single_pipeline(**kwargs) -> Pipeline:
     ])
     
     return parse_pipeline + extract_features_pipeline()
+
+def extract_AP_features_pipeline(**kwargs) -> Pipeline:    
+    return pipeline([
+        node(
+            func=parse_rec_file_info,
+            inputs=[
+                "data_catalog_full", 
+                "first_pipe_input",
+                "params:file_index",
+            ],
+            outputs=[
+                "rec_info",
+                "file_path_full",
+            ],
+            tags=["directory","files"],
+            name="parse_rec_file_info",
+        ),
+        node(
+            func=extract_data,
+            inputs=[
+                "file_path_full", 
+                "params:signals.start_frame",
+                "params:signals.length",
+                "params:signals.s_freq",
+            ],
+            outputs=[
+                "signals",
+                "electrodes_info",
+                "gain",
+                "rec_duration",
+                "rec_proc_duration",
+            ],
+            tags=["extract","data","signals"],
+            name="extract_data",
+        ),
+        node(
+            func=get_AP_waves,
+            inputs=[
+                "signals", 
+                "params:AP_wave",
+            ],
+            outputs=[
+                "AP_waves",
+                "electroporation_yield",
+            ],
+            tags=["waveforms"],
+            name="get_AP_waves",
+        ),
+        node(
+            func=get_AP_wave_features,
+            inputs=[
+                "AP_waves", 
+                "params:AP_wave.after_upstroke",
+                "params:signals.s_freq",
+            ],
+            outputs=[
+                "AP_amplitudes",
+                "depolarization_time",
+                "APD50",
+                "APD90",
+            ],
+            tags=["AP","features","waveforms"],
+            name="get_AP_wave_features",
+        ),
+        node(
+            func=upload_AP_features_to_sql_server,
+            inputs=[
+                "rec_info",
+                "file_path_full",
+                "gain",
+                "rec_duration",
+                "rec_proc_duration",
+                "electroporation_yield",
+                "electrodes_info",
+                "AP_amplitudes",
+                "depolarization_time",
+                "APD50",
+                "APD90",
+                "params:tablename.AP"
+            ],
+            outputs=None,
+            tags=["upload","data","SQL"],
+            name="upload_AP_features_to_sql_server",
+        ),
+    ])

@@ -397,10 +397,12 @@ numpy==1.24.2
     #   numexpr
     #   pandas
     #   pandas-gbq
+    #   patsy
     #   pyarrow
     #   pyerfa
     #   scikit-learn
     #   scipy
+    #   statsmodels
     #   tables
 oauthlib==3.2.2
     # via requests-oauthlib
@@ -427,6 +429,7 @@ packaging==23.0
     #   pytoolconfig
     #   qtconsole
     #   qtpy
+    #   statsmodels
     #   tables
 pandas==1.5.3
     # via
@@ -435,6 +438,7 @@ pandas==1.5.3
     #   kedro
     #   kedro-viz
     #   pandas-gbq
+    #   statsmodels
 pandas-gbq==0.17.9
     # via kedro
 pandocfilters==1.5.0
@@ -443,6 +447,8 @@ parso==0.8.3
     # via jedi
 pathspec==0.11.1
     # via black
+patsy==0.5.3
+    # via statsmodels
 pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
@@ -606,6 +612,7 @@ scipy==1.10.1
     #   hrv-analysis
     #   lmfit
     #   scikit-learn
+    #   statsmodels
 semver==2.13.0
     # via kedro-viz
 send2trash==1.8.0
@@ -618,6 +625,7 @@ six==1.16.0
     #   asttokens
     #   bleach
     #   google-auth
+    #   patsy
     #   python-dateutil
 smmap==5.0.0
     # via gitdb
@@ -634,6 +642,8 @@ stack-data==0.6.2
     # via ipython
 starlette==0.22.0
     # via fastapi
+statsmodels==0.14.0
+    # via -r src/requirements.in
 strawberry-graphql==0.171.1
     # via kedro-viz
 sympy==1.11.1

@@ -23,7 +23,7 @@ from psycopg2.extensions import register_adapter, AsIs
 import sympy as sym
 
 
-def list_rec_files(data_catalog,base_directory,ext):
+def list_rec_files(data_catalog,base_directory,file_name_pattern,ext):
     """List all recording files in the directory.
 
     This function takes in a data catalog containing directory information (where recording files 
@@ -43,7 +43,7 @@ def list_rec_files(data_catalog,base_directory,ext):
    
     for row in range(len(data_catalog)):
         # list all files (with specified extension) in the directory
-        rec_files = glob.glob(base_directory+str(data_catalog.loc[row,'file_path'])+"/*"+ext)
+        rec_files = glob.glob(base_directory+str(data_catalog.loc[row,'file_path'])+"/"+file_name_pattern+"*"+ext)
         
         # create a new dataframe that contains both existing and new data (full file directory)
         if rec_files:
@@ -213,7 +213,6 @@ def _R_timestamps(signal_single,mult_factor,min_peak_dist):
     thr = mult_factor*np.std(signal_single)
     # r_locs, _ = _peakseek(signal_single, minpeakdist=min_peak_dist, minpeakh=thr)
     r_locs, _ = find_peaks(signal_single, distance=min_peak_dist, prominence=thr)
-    find_peaks
 
     return len(r_locs), r_locs
 
@@ -482,7 +481,7 @@ def get_conduction_speed(sync_timestamps,electrodes_info_updated,s_freq):
 
 
 def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,rec_proc_duration,electrodes_info_updated,active_area,R_amplitudes,R_widths,FPDs,HRV_features,conduction_speed,n_beats,tablename):
-    """Upload extracted feature data to SQL server.
+    """Upload extracted FP feature data to SQL server.
     
     Args:
         rec_info (dict): Recording information.
@@ -561,8 +560,15 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,rec_proc_dura
     # add HRV features to the list of values
     values.extend(HRV_values)
 
-    # get PostgreSQL database information and credentials data from text file
-    # .txt file format: host, database, user, password in each line
+    # upload data to SQL server
+    _upload_to_sql_server(tablename, sql_columns, values)
+    
+    return 1
+
+
+def _upload_to_sql_server(tablename, sql_columns, values):
+    # Get PostgreSQL database information and credentials data from text file.
+    # (.txt file format: host, database, user, password in each line)
     with open('conf/local/postgresql.txt', 'r') as f:
         sql_credentials = f.read().splitlines()
     
@@ -602,5 +608,171 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,rec_proc_dura
         if conn is not None:
             conn.close()
             print('Database connection closed.')
+
+def get_AP_waves(signals, params_AP_wave):
+    AP_waves=[]
+    for signal in signals:
+        # find the end point of the clipped window of the signal
+        max_clipped_ind = np.flatnonzero(signal == np.amax(signal)).tolist()
+        min_clipped_ind = np.flatnonzero(signal == np.amin(signal)).tolist()
+        endpoint = max(max_clipped_ind + min_clipped_ind)
+
+        if endpoint:
+            endpoint = max(endpoint,2e5)    # after offset fluctuation
+        else:
+            endpoint = 2e5     # 10s from the onset of recording
     
-    return 1
+        segment = signal[int(endpoint):]
+        if len(segment) < params_AP_wave['before_upstroke']+params_AP_wave['after_upstroke']:
+            # skip this channel if the signal was clipped almost till the end.
+            continue
+        
+        # Find AP locations
+        r_locs_tmp, _ = find_peaks(segment[params_AP_wave['before_upstroke']:-params_AP_wave['after_upstroke']], distance=params_AP_wave['after_upstroke'], prominence=params_AP_wave['min_peak_prom'], width=params_AP_wave['width_thr'])
+        r_locs = r_locs_tmp + params_AP_wave['before_upstroke']
+
+        # skip if no peak was found
+        if r_locs.size==0:
+            continue
+
+        # get AP waves
+        waves = []
+        n_peaks = min(params_AP_wave['n_waves'],len(r_locs))
+        for peaks in range(n_peaks):
+            waves.append(segment[r_locs[peaks]-params_AP_wave['before_upstroke']:r_locs[peaks]+params_AP_wave['after_upstroke']]/n_peaks)
+        
+        # average the waves
+        AP_waves.append([sum(col) / len(col) for col in zip(*waves)])
+        
+    # Calculate electroporation yield
+    electroporation_yield = 100*len(AP_waves)/signals.shape[0]
+
+    return AP_waves, electroporation_yield
+
+def get_AP_wave_features(AP_waves,after_upstroke,s_freq):
+    t_deps=[]
+    amps=[]
+    APD50s=[]
+    APD90s=[]
+    for AP_wave in AP_waves:
+        # find peak (maximum of the AP wave)    
+        peak_x = np.argmax(AP_wave[:after_upstroke])
+        peak_y = AP_wave[peak_x]
+
+        # skip this AP wave if FP spike is dominant
+        spike_tip_width = np.flatnonzero(AP_wave > (peak_y - 80)).size
+        if spike_tip_width < 100:
+            continue
+
+        # valley before the upstroke
+        f_valley_x = np.argmin(AP_wave[:peak_x])
+        f_valley_y = AP_wave[f_valley_x]
+        # valley after the upstroke
+        b_valley_x_tmp = np.argmin(AP_wave[peak_x:])
+        b_valley_x = peak_x + b_valley_x_tmp
+        b_valley_y = AP_wave[b_valley_x]
+
+        # find the initiation point of the upstroke
+        x = np.arange(f_valley_x,peak_x)
+        y = np.array(AP_wave)[x]
+        numerator = np.abs((peak_y - f_valley_y) * x - (peak_x - f_valley_x) * y + peak_x * f_valley_y - peak_y * f_valley_x)
+        denominator = np.sqrt((peak_y - f_valley_y) ** 2 + (peak_x - f_valley_x) ** 2)
+        knee_x = np.argmax(numerator / denominator)
+        thr_x = f_valley_x + knee_x
+
+        # get depolarization time (unit: milliseconds)
+        t_dep = 1e3*(peak_x-thr_x)/s_freq
+        
+        # get peak-to-peak amplitude of AP wave (unit: millivolts)
+        amp = peak_y - b_valley_y
+        
+        # get APD50
+        temp = np.argmin(np.abs(AP_wave[peak_x:b_valley_x] - (peak_y - amp * 0.5)))
+        APD50 = 1e3*(peak_x + temp - thr_x)/s_freq
+        # get APD90
+        temp = np.argmin(np.abs(AP_wave[peak_x:b_valley_x] - (peak_y - amp * 0.9)))
+        APD90 = 1e3*(peak_x + temp - thr_x)/s_freq
+        
+        # skip this AP wave if spike tip width is greater than APD90
+        if 1e3*spike_tip_width/s_freq > APD90:
+            continue
+        else:
+            t_deps.append(t_dep) 
+            amps.append(amp)
+            APD50s.append(APD50)
+            APD90s.append(APD90)
+
+    return amps, t_deps, APD50s, APD90s
+
+def upload_AP_features_to_sql_server(rec_info,file_path_full,gain,rec_duration,rec_proc_duration,electroporation_yield,electrodes_info,AP_amplitudes,depolarization_time,APD50,APD90,tablename):
+    """Upload extracted AP feature data to SQL server.
+    
+    Args:
+        rec_info (dict): Recording information.
+        file_path_full (str): Full path to the recording file.
+        gain (int): Gain of the recording.
+        rec_duration (float): Duration of the recording in seconds.
+        rec_proc_duration (float): Duration of the fraction of recording (in seconds) that was processed.
+        electroporation_yield (float): Electroporation yield.
+        electrodes_info (dict): electrode information.
+        AP_amplitudes (list): AP amplitudes.
+        depolarization_time (list): Depolarization time.
+        APD50 (list): action potential duration at 50% repolarization.
+        APD90 (list): action potential duration at 90% repolarization.
+        tablename (str): Name of the SQL table where the data is uploaded.
+    """    
+    # organize SQL column names and data types
+    sql_columns = [
+        ['time', 'TIMESTAMP'],
+        ['cell_line', 'VARCHAR'],
+        ['compound', 'VARCHAR'],
+        ['note', 'VARCHAR'],
+        ['file_path_full', 'VARCHAR'],
+        ['gain', 'SMALLINT'],
+        ['rec_duration', 'DECIMAL(4,1)'],
+        ['rec_proc_duration', 'DECIMAL(4,1)'],
+        ['electroporation_yield', 'DECIMAL(4,1)'],
+        ['n_electrodes', 'SMALLINT'],
+        ['AP_amplitudes_str', 'VARCHAR'],
+        ['AP_amplitudes_mean', 'DECIMAL(6,1)'],
+        ['AP_amplitudes_std', 'DECIMAL(7,1)'],
+        ['depolarization_time_str', 'VARCHAR'],
+        ['depolarization_time_mean', 'DECIMAL(4,1)'],
+        ['depolarization_time_std', 'DECIMAL(5,1)'],
+        ['APD50_str', 'VARCHAR'],
+        ['APD50_mean', 'DECIMAL(5,1)'],
+        ['APD50_std', 'DECIMAL(6,1)'],
+        ['APD90_str', 'VARCHAR'],
+        ['APD90_mean', 'DECIMAL(5,1)'],
+        ['APD90_std', 'DECIMAL(6,1)'],
+    ]
+
+    # convert to integers to prevent overflow
+    AP_amplitudes_int = [int(AP_amplitudes[i]) if not np.isnan(AP_amplitudes[i]) else AP_amplitudes[i] for i in range(len(AP_amplitudes))]
+    depolarization_time_int = [int(depolarization_time[i]) if not np.isnan(depolarization_time[i]) else depolarization_time[i] for i in range(len(depolarization_time))]
+    APD50_int = [int(APD50[i]) if not np.isnan(APD50[i]) else APD50[i] for i in range(len(APD50))]
+    APD90_int = [int(APD90[i]) if not np.isnan(APD90[i]) else APD90[i] for i in range(len(APD90))]
+
+    # prepare data in appropriate forms
+    cell_line = rec_info['cell_line']
+    compound = rec_info['compound']
+    note = rec_info['note']
+    n_electrodes = electrodes_info['num_channels']
+    AP_amplitudes_str = ' '.join(map(str, AP_amplitudes_int))
+    AP_amplitudes_mean = np.nanmean(AP_amplitudes_int)
+    AP_amplitudes_std = np.std(AP_amplitudes_int)
+    depolarization_time_str = ' '.join(map(str, depolarization_time_int))
+    depolarization_time_mean = np.nanmean(depolarization_time_int)
+    depolarization_time_std = np.nanstd(depolarization_time_int)
+    APD50_str = ' '.join(map(str, APD50_int))
+    APD50_mean = np.nanmean(APD50)
+    APD50_std = np.nanstd(APD50)
+    APD90_str = ' '.join(map(str, APD90_int))
+    APD90_mean = np.nanmean(APD90)
+    APD90_std = np.nanstd(APD90)
+    timestamp = datetime.datetime.now()
+
+    values = [timestamp, cell_line, compound, note, file_path_full, gain, rec_duration, rec_proc_duration, electroporation_yield, n_electrodes, AP_amplitudes_str, AP_amplitudes_mean, AP_amplitudes_std, depolarization_time_str, depolarization_time_mean, depolarization_time_std, APD50_str, APD50_mean, APD50_std, APD90_str, APD90_mean, APD90_std]
+
+    # upload data to SQL server
+    _upload_to_sql_server(tablename, sql_columns, values)
