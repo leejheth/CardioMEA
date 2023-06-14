@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
+import base64
 import webbrowser
 import itertools
 import logging
@@ -15,12 +16,16 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
 def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
+    bel_logo = 'data/01_raw/bel_ohne_schrift.jpg'
+    logo_base64 = base64.b64encode(open(bel_logo, 'rb').read()).decode('ascii')
+    
+    app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+    ## Extracellular recordings
     cell_lines = cardio_db_FP["cell_line"].unique()
     cardio_db_FP["file_path"] = cardio_db_FP["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
     col_simple = ['cell_line','compound','file_path','time','note']
     columns = [{'name': i, 'id': i} for i in col_simple]
-    
-    app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     checklist = html.Div(
         [
@@ -32,9 +37,8 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                 inline=True,
             ),
             html.Br(),
-            html.H4("Choose compounds"),
+            html.H4("Choose experiment compounds"),
             dbc.Checklist(
-                # options=[{"label": c, "value": c} for c in compounds],
                 options=[],
                 # select all by default
                 value=[],
@@ -78,19 +82,6 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         style_cell={'textAlign': 'left', 'minWidth': '150px'},
     )
 
-    # Reset selections if table is changed by the user
-    @app.callback(
-        Output("datatable", "selected_rows"),
-        [
-            Input("checklist_cell_lines", "value"),
-            Input("checklist_compounds", "value"),
-            Input("latest_only", "value"),
-            Input("reset_button", "n_clicks")
-        ],
-    )
-    def reset_selected_rows(checklist_cell_lines, checklist_compounds, switch, reset):
-        return []
-
     @app.callback(
         Output("datatable", "data"),
         [
@@ -112,6 +103,19 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         table_data = [{c['id']: df_selected[c['name']].iloc[i] for c in columns+[{'name': 'time_processed', 'id': 'time_processed'}]} for i in range(len(df_selected))]
 
         return table_data
+
+    # Reset selections if table is changed by the user
+    @app.callback(
+        Output("datatable", "selected_rows"),
+        [
+            Input("checklist_cell_lines", "value"),
+            Input("checklist_compounds", "value"),
+            Input("latest_only", "value"),
+            Input("reset_button", "n_clicks")
+        ],
+    )
+    def reset_selected_rows(checklist_cell_lines, checklist_compounds, switch, reset):
+        return []
 
     # Define callback to display selected rows
     @app.callback(
@@ -140,12 +144,13 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig = make_subplots(
             rows=2, cols=2, subplot_titles=("R amplitude", "R width", "FPD", "Conduction speed")
         )
-        fig.update_layout(height=900)
         if not selected_rows:
             fig.add_trace(go.Scatter(), row=1, col=1)
             fig.add_trace(go.Scatter(), row=1, col=2)
             fig.add_trace(go.Scatter(), row=2, col=1)
             fig.add_trace(go.Scatter(), row=2, col=2)
+            fig.for_each_xaxis(lambda x: x.update(showgrid=False, zeroline=False))
+            fig.for_each_yaxis(lambda x: x.update(showgrid=False, zeroline=False))
             return fig
 
         selected_data = [data[i] for i in selected_rows]
@@ -216,9 +221,9 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.update_yaxes(title_text="Milli Second", showgrid=False, row=1, col=2)
         fig.update_yaxes(title_text="Milli Second", showgrid=False, row=2, col=1)
         fig.update_yaxes(title_text="cm/s", showgrid=False, row=2, col=2)
+        fig.update_layout(height=900)
         return fig
     
-    # header = ['gain','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','triangular_index','tinn','lf','hf','lf_hf_ratio','lfnu','hfnu','total_power','vlf','csi','cvi','modified_csi','sd1','sd2','ratio_sd2_sd1']
     header = ['gain','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','csi','cvi','modified_csi']
 
     @app.callback(
@@ -244,48 +249,315 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
 
         return dbc.Table.from_dataframe(df_T, id='feature_table', striped=True, bordered=True, hover=True)
 
+    ## Intracellular recordings
+    cell_lines_AP = cardio_db_AP["cell_line"].unique()
+    cardio_db_AP["file_path"] = cardio_db_AP["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
+
+    checklist_AP = html.Div(
+        [
+            html.H4("Choose cell lines"),
+            dbc.Checklist(
+                options=[{"label": c, "value": c} for c in cell_lines_AP],
+                value=[],
+                id="checklist_cell_lines_AP",
+                inline=True,
+            ),
+            html.Br(),
+            html.H4("Choose experiment compounds"),
+            dbc.Checklist(
+                options=[],
+                # select all by default
+                value=[],
+                id="checklist_compounds_AP",
+                inline=True,
+            ),
+        ]
+    )
+    @app.callback(
+        Output("checklist_compounds_AP", "options"),
+        Output("checklist_compounds_AP", "value"),
+        Input("checklist_cell_lines_AP", "value"),
+    )
+    def update_compound_list_AP(checklist_cell_lines):
+        compound_list = cardio_db_AP["compound"].loc[cardio_db_AP["cell_line"].isin(checklist_cell_lines)].unique()
+        options = [{'label': c, 'value': c} for c in compound_list]
+        return options, compound_list
+
+    switch_AP = html.Div(
+        [
+            dbc.Switch(
+                label="Show the latest data only",
+                value=True,
+                id="latest_only_AP",
+            ),
+        ]
+    )
+
+    # Define data table with checkbox column
+    table_AP = dash_table.DataTable(
+        id='datatable_AP',
+        columns=[{"name": i, "id": i} for i in ['cell_line','compound','file_path','time_processed','note']],
+        data=[],
+        page_size=10,    
+        page_current=0, 
+        editable=False,
+        row_selectable="multi",
+        selected_rows=[],
+        style_table={'overflowX': 'scroll'},
+        style_cell={'textAlign': 'left', 'minWidth': '150px'},
+    )
+
+    @app.callback(
+        Output("datatable_AP", "data"),
+        [
+            Input("checklist_cell_lines_AP", "value"),
+            Input("checklist_compounds_AP", "value"),
+            Input("latest_only_AP", "value"),
+        ],
+    )
+    def update_table_AP(checklist_cell_lines, checklist_compounds, switch_value):
+        # show only the latest data if switch is on
+        if switch_value:
+            df = cardio_db_AP.sort_values('time').groupby('file_path').tail(1).reset_index(drop=True)
+        else:
+            df = cardio_db_AP.copy()
+        # filter only cell lines that are selected 
+        df_selected = df.loc[df["cell_line"].isin(checklist_cell_lines) & df["compound"].isin(checklist_compounds), col_simple]
+        # add a column with time in string format for display
+        df_selected["time_processed"] = df_selected["time"].apply(lambda x: x.strftime("%Y-%m-%d %H:%M:%S"))
+        table_data = [{c['id']: df_selected[c['name']].iloc[i] for c in columns+[{'name': 'time_processed', 'id': 'time_processed'}]} for i in range(len(df_selected))]
+
+        return table_data
+
+    # Reset selections if table is changed by the user
+    @app.callback(
+        Output("datatable_AP", "selected_rows"),
+        [
+            Input("checklist_cell_lines_AP", "value"),
+            Input("checklist_compounds_AP", "value"),
+            Input("latest_only_AP", "value"),
+            Input("reset_button_AP", "n_clicks")
+        ],
+    )
+    def reset_selected_rows_AP(checklist_cell_lines, checklist_compounds, switch, reset):
+        return []
+
+    # Define callback to display selected rows
+    @app.callback(
+        Output('selected_data_AP', 'children'),
+        Input('datatable_AP', 'selected_rows'),
+        State('datatable_AP', 'data')
+    )
+    def display_selected_rows_AP(selected_rows, data):
+        if not selected_rows:
+            return ''
+        selected_data = [data[i] for i in selected_rows]
+        return html.Div([
+            html.H4('Selected Files in Order:'),
+            html.Ul([
+                html.Li(f"file_{cnt+1}: {row['cell_line']} ({row['file_path']})")
+                for cnt, row in enumerate(selected_data)
+            ])
+        ])
+    
+    @app.callback(
+        Output('tab1_graphs_AP', 'figure'),
+        Input('datatable_AP', 'selected_rows'),
+        State('datatable_AP', 'data')
+    )
+    def tab1_graphs_AP(selected_rows, data):
+        fig = make_subplots(
+            rows=2, cols=2, subplot_titles=("Amplitude", "Depolarization time", "APD50", "APD90")
+        )
+        if not selected_rows:
+            fig.add_trace(go.Scatter(), row=1, col=1)
+            fig.add_trace(go.Scatter(), row=1, col=2)
+            fig.add_trace(go.Scatter(), row=2, col=1)
+            fig.add_trace(go.Scatter(), row=2, col=2)
+            fig.for_each_xaxis(lambda x: x.update(showgrid=False, zeroline=False))
+            fig.for_each_yaxis(lambda x: x.update(showgrid=False, zeroline=False))
+            return fig
+        
+        selected_data = [data[i] for i in selected_rows]
+        # convert list of dict to dataframe
+        data_df = pd.DataFrame(selected_data)
+        data_df["time"] = pd.to_datetime(data_df["time"])
+        # filter only rows that are selected and preserve the selection order
+        df_selected = pd.merge(data_df["time"],cardio_db_AP, how="left", on="time", sort=False)
+                
+        # convert string of AP amplitudes (peak-to-peak) to list of int
+        amp_list = list(df_selected['ap_amplitudes_str'].apply(lambda x: list(map(int, x.split(' ')))))
+        amp_flattened = list(itertools.chain(*amp_list))
+        xlabels=[]
+        for i in range(len(df_selected)):
+            xlabels += [f'file_{i+1}']*len(amp_list[i])
+        fig.add_trace(px.strip(x=xlabels, y=amp_flattened).update_traces(jitter=1,opacity=0.6,marker_size=5).data[0], row=1, col=1)
+        fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['ap_amplitudes_mean'].to_list(),
+                         error_y_array=df_selected['ap_amplitudes_std'].to_list(),
+                         mode='markers',
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         showlegend=False),
+                         row=1, col=1)
+        
+        # convert string of depolarization time to list of int
+        amp_list = list(df_selected['depolarization_time_str'].apply(lambda x: list(map(int, x.split(' ')))))
+        amp_flattened = list(itertools.chain(*amp_list))
+        xlabels=[]
+        for i in range(len(df_selected)):
+            xlabels += [f'file_{i+1}']*len(amp_list[i])
+        fig.add_trace(px.strip(x=xlabels, y=amp_flattened).update_traces(jitter=1,opacity=0.6,marker_size=5).data[0], row=1, col=2)
+        fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['depolarization_time_mean'].to_list(),
+                         error_y_array=df_selected['depolarization_time_std'].to_list(),
+                         mode='markers',
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         showlegend=False),
+                         row=1, col=2)
+        
+        # convert string of APD50 to list of int
+        amp_list = list(df_selected['apd50_str'].apply(lambda x: list(map(int, x.split(' ')))))
+        amp_flattened = list(itertools.chain(*amp_list))
+        xlabels=[]
+        for i in range(len(df_selected)):
+            xlabels += [f'file_{i+1}']*len(amp_list[i])
+        fig.add_trace(px.strip(x=xlabels, y=amp_flattened).update_traces(jitter=1,opacity=0.6,marker_size=5).data[0], row=2, col=1)
+        fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['apd50_mean'].to_list(),
+                         error_y_array=df_selected['apd50_std'].to_list(),
+                         mode='markers',
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         showlegend=False),
+                         row=2, col=1)
+        
+        # convert string of APD90 to list of int
+        amp_list = list(df_selected['apd90_str'].apply(lambda x: list(map(int, x.split(' ')))))
+        amp_flattened = list(itertools.chain(*amp_list))
+        xlabels=[]
+        for i in range(len(df_selected)):
+            xlabels += [f'file_{i+1}']*len(amp_list[i])
+        fig.add_trace(px.strip(x=xlabels, y=amp_flattened).update_traces(jitter=1,opacity=0.6,marker_size=5).data[0], row=2, col=2)
+        fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['apd90_mean'].to_list(),
+                         error_y_array=df_selected['apd90_std'].to_list(),
+                         mode='markers',
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         showlegend=False),
+                         row=2, col=2)
+        
+        # Update yaxis properties
+        fig.update_yaxes(title_text="Micro Volt", showgrid=False, row=1, col=1)
+        fig.update_yaxes(title_text="Milli Second", showgrid=False, row=1, col=2)
+        fig.update_yaxes(title_text="Milli Second", showgrid=False, row=2, col=1)
+        fig.update_yaxes(title_text="Milli Second", showgrid=False, row=2, col=2)
+        fig.update_layout(height=900)
+        return fig
+
+    header_AP = ['gain','rec_duration','rec_proc_duration','electroporation_yield','n_electrodes']
+
+    @app.callback(
+        Output('feature_table_AP', 'children'),
+        Input('datatable_AP', 'selected_rows'),
+        State('datatable_AP', 'data')
+    )
+    def tab2_feature_table_AP(selected_rows, data):
+        if not selected_rows:
+            return ''
+        selected_data = [data[i] for i in selected_rows]
+        # convert list of dict to dataframe
+        data_df = pd.DataFrame(selected_data)
+        data_df["time"] = pd.to_datetime(data_df["time"])
+        # filter only rows that are selected and preserve the selection order
+        df_selected = pd.merge(data_df["time"], cardio_db_AP, how="left", on="time", sort=False)
+        df = df_selected[header_AP].applymap(lambda x: round(x,1) if x is not None else None)
+        df.insert(0,'file',[f'file_{i+1}' for i in range(len(df_selected))])
+        df_T = df.T
+        df_T.rename(columns=df_T.iloc[0], inplace=True)
+        df_T.drop(df_T.index[0], inplace=True)  
+        df_T.reset_index(drop=False, inplace=True)  
+
+        return dbc.Table.from_dataframe(df_T, id='feature_table_AP', striped=True, bordered=True, hover=True)
+
     app.layout = html.Div([
-        html.H1(children='CardioMEA Dashboard', style={'textAlign':'center'}),
+        dbc.Row([
+            dbc.Col(
+                html.A(html.Img(src=f'data:image/jpg;base64,{logo_base64}', height="35px"), href="https://bsse.ethz.ch/bel", target="_blank"), 
+                width=2,
+                style={'margin-left':'10px','margin-top':'8px'},
+            ),
+            dbc.Col(html.H1(children='CardioMEA Dashboard', style={'textAlign':'center'})),
+            dbc.Col(width=2),
+        ]),    
         dcc.Tabs([
             dcc.Tab([       
+                html.Br(),
                 dbc.Row([   
-                    dbc.Card(
-                        html.Div([
-                            # check list to choose cell lines     
-                            checklist,
-                            html.Br(),
-                            # switch to choose between single (latest) or multiple files per recording 
-                            switch,
-                            html.Br(),
-                            html.H4("List of processed files"),
-                            # table to show data
-                            table,
-                            dbc.Button("Reset selections", id="reset_button", color="primary", n_clicks=0),
-                            html.Br(),
-                            html.Div(id='selected_data',children=[]),      
-                        ]), 
-                    color="light", style={"width": "98%"}),
+                    dbc.Col([
+                        dbc.Card(
+                            html.Div([
+                                # check list to choose cell lines     
+                                checklist,
+                                html.Br(),
+                                # switch to choose between single (latest) or multiple files per recording 
+                                switch,
+                                html.Br(),
+                                html.H4("List of processed files"),
+                                # table to show data
+                                table,
+                                dbc.Button("Reset selections", id="reset_button", color="primary", n_clicks=0),
+                                html.Br(),
+                                html.Div(id='selected_data',children=[]),      
+                            ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}), 
+                        color="#E4E6D8"),
+                    ], style={'margin-left': '10px', 'margin-right': '10px'}),
                 ], justify="center"),
                 html.Br(),
                 dbc.Row([
-                    dbc.Card(
+                    dbc.Col([
                         dbc.Tabs([                    
-                            dbc.Tab(dcc.Graph(id='tab1_graphs'), label="Data distribution", activeTabClassName="fw-bold"),
+                            dbc.Tab(dcc.Graph(id='tab1_graphs'), label="Data distribution", activeTabClassName="fw-bold", tab_id="tab1-1"),
                             dbc.Tab([
                                 html.Div(id='feature_table',children=[],style={"overflow": "scroll"}), 
                                 html.H5('Click on the link below to see documentations of the HRV features.'),
                                 dcc.Link('Link to the HRV documentation', href="https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html"),
-                            ], label="Recording info", activeTabClassName="fw-bold"),
-                            dbc.Tab(html.H4('Here comes feature analysis'), label="Feature analysis", activeTabClassName="fw-bold"),
-                        ]), 
-                    style={"width": "98%"}),
+                            ], label="Recording info", activeTabClassName="fw-bold", tab_id="tab1-2"),
+                            dbc.Tab(html.H4('Here comes feature analysis'), label="Feature analysis", activeTabClassName="fw-bold", tab_id="tab1-3"),
+                        ], active_tab="tab1-1"), 
+                    ], style={'margin-left': '15px', 'margin-right': '15px'}),
                 ], justify="center"), 
-            ], label='Extracellular Analysis', style={'borderBottom':'1px solid #d6d6d6','padding':'6px','fontWeight':'bold'}, selected_style={'borderTop':'1px solid #d6d6d6','borderBottom':'1px solid #d6d6d6','backgroundColor':'#119DFF','color':'white','padding':'6px','fontWeight':'bold'}),
-            dcc.Tab(label='Intracellular Analysis', style={'borderBottom':'1px solid #d6d6d6','padding':'6px','fontWeight':'bold'}, selected_style={'borderTop':'1px solid #d6d6d6','borderBottom':'1px solid #d6d6d6','backgroundColor':'#119DFF','color':'white','padding':'6px','fontWeight':'bold'}),
-        ], style={'height': '44px'}),
+            ], label='Extracellular Analysis', style={'borderBottom':'1px solid #d6d6d6','padding':'6px','fontWeight':'bold'}, selected_style={'borderTop':'1px solid #d6d6d6','borderBottom':'1px solid #d6d6d6','backgroundColor':'#C0D2EA','padding':'6px','fontWeight':'bold'}),
+            dcc.Tab([
+                html.Br(),
+                dbc.Row([   
+                    dbc.Col([
+                        dbc.Card(
+                            html.Div([
+                                # check list to choose cell lines     
+                                checklist_AP,
+                                html.Br(),
+                                # switch to choose between single (latest) or multiple files per recording 
+                                switch_AP,
+                                html.Br(),
+                                html.H4("List of processed files"),
+                                # table to show data
+                                table_AP,
+                                dbc.Button("Reset selections", id="reset_button_AP", color="primary", n_clicks=0),
+                                html.Br(),
+                                html.Div(id='selected_data_AP',children=[]),      
+                            ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}), 
+                        color="#E4E6D8"),
+                    ], style={'margin-left': '10px', 'margin-right': '10px'}),
+                ], justify="center"),
+                html.Br(),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Tabs([                    
+                            dbc.Tab(dcc.Graph(id='tab1_graphs_AP'), label="Data distribution", activeTabClassName="fw-bold", tab_id="tab2-1"),
+                            dbc.Tab([
+                                html.Div(id='feature_table_AP',children=[],style={"overflow": "scroll"}), 
+                                ], label="Recording info", activeTabClassName="fw-bold", tab_id="tab2-2"),
+                        ], active_tab="tab2-1"), 
+                    ], style={'margin-left': '15px', 'margin-right': '15px'}),
+                ], justify="center"), 
+            ], label='Intracellular Analysis', style={'borderBottom':'1px solid #d6d6d6','padding':'6px','fontWeight':'bold'}, selected_style={'borderTop':'1px solid #d6d6d6','borderBottom':'1px solid #d6d6d6','backgroundColor':'#C0D2EA','padding':'6px','fontWeight':'bold'}),
+        ], style={'height': '44px', 'margin-left': '10px', 'margin-right': '10px'}),
     ])
-
-    
 
     # open the URL with the default web browser of the user’s computer
     print("Ctrl + C to exit.")

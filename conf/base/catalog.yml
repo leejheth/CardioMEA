@@ -12,9 +12,14 @@ data_catalog_full:
   save_args:
     index: False
 
-cardio_db:
+cardio_db_FP:
   type: pandas.SQLQueryDataSet
   sql: "SELECT * FROM features"
+  credentials: db_credentials
+
+cardio_db_AP:
+  type: pandas.SQLQueryDataSet
+  sql: "SELECT * FROM ap_features"
   credentials: db_credentials
 
 first_pipe_input:

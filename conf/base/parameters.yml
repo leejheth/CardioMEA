@@ -1,6 +1,6 @@
 raw_data:
-  base_directory: '/mnt/z/recordings/Mea1k/leejih/'
-  # base_directory: '/net/bs-filesvr02/export/group/hierlemann/recordings/Mea1k/leejih/'
+  # base_directory: '/mnt/z/recordings/Mea1k/leejih/'
+  base_directory: '/net/bs-filesvr02/export/group/hierlemann/recordings/Mea1k/leejih/'
   # base_directory: '/cluster/scratch/leejih/'
   file_name_pattern: 'stim'
   file_extension: '.h5'
@@ -10,6 +10,6 @@ nCPUs: 20
 file_index: 0
 
 tablename: 
-  FP: 'FP_features'
-  AP: 'AP_features'
+  FP: 'fp_features'
+  AP: 'ap_features'
 
