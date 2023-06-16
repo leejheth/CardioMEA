@@ -387,18 +387,15 @@ def _hrv_features(timestamps,s_freq):
         # get frequency domain features (use for >2min recordings)
         # frequency_domain_features = hrva.get_frequency_domain_features(RR_intervals)
         
-        # get csi and cvi features (use for recordings containing 30, 50, 100 RR-intervals (or seconds))
-        csi_cvi_features = hrva.get_csi_cvi_features(RR_intervals)
-        
         # get poincare plot features (use for >5min recordings)
         # poincare_plot_features = hrva.get_poincare_plot_features(RR_intervals)
 
-        # all_hrv_features = {**time_domain_features, **geometrical_features, **frequency_domain_features, **csi_cvi_features, **poincare_plot_features}
-        all_hrv_features = {**time_domain_features, **csi_cvi_features}
+        # all_hrv_features = {**time_domain_features, **geometrical_features, **frequency_domain_features, **poincare_plot_features}
+        all_hrv_features = {**time_domain_features}
     
     except Exception:
         # keys = ['mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','triangular_index','tinn','lf','hf','lf_hf_ratio','lfnu','hfnu','total_power','vlf','csi','cvi','Modified_csi','sd1','sd2','ratio_sd2_sd1']
-        keys = ['mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','csi','cvi','Modified_csi']
+        keys = ['mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr']
         all_hrv_features = dict([])
         for key in keys:
             all_hrv_features.update({key:None})
