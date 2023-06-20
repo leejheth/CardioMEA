@@ -21,6 +21,9 @@ from cardiomea.pipelines.features.nodes import (
     get_AP_waves,
     get_AP_wave_features,
     upload_AP_features_to_sql_server,
+    # filter_dataset,
+    # nested_CV,
+    # feature_importance,
 )
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -346,3 +349,44 @@ def extract_AP_features_pipeline(**kwargs) -> Pipeline:
             name="upload_AP_features_to_sql_server",
         ),
     ])
+
+
+# def create_data_science_pipeline(**kwargs) -> Pipeline:    
+#     return pipeline([
+#         node(
+#             func=filter_dataset,
+#             inputs=[
+#                 "cardio_db_FP", 
+#                 "params:ML_model.labels",
+#             ],
+#             outputs=[
+#                 "cardio_db_FP_filtered",
+#             ],
+#             tags=["filter","dataset"],
+#             name="filter_dataset",
+#         ),
+#         node(
+#             func=nested_CV,
+#             inputs=[
+#                 "cardio_db_FP_filtered", 
+#                 "params:ML_model.outer_kfold",
+#                 "params:ML_model.inner_kfold",
+#             ],
+#             outputs=[
+#                 "models_list",
+#             ],
+#             tags=["cross_validation","model","training"],
+#             name="nested_CV",
+#         ),
+#         node(
+#             func=feature_importance,
+#             inputs=[
+#                 "models_list",
+#             ],
+#             outputs=[
+#                 "shap_values",
+#             ],
+#             tags=["feature","importance"],
+#             name="feature_importance",
+#         ),
+#     ])
