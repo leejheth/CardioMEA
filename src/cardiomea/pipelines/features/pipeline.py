@@ -4,6 +4,7 @@ generated using Kedro 0.18.7
 """
 
 import yaml
+import os
 from functools import partial, update_wrapper
 from kedro.pipeline import Pipeline, node, pipeline
 from cardiomea.pipelines.features.nodes import (
@@ -184,66 +185,66 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
     ])
 
 
-def create_auto_pipeline(**kwargs) -> Pipeline:   
-    # Read the number of files to process
-    with open("conf/base/file_count.yml", "r") as f:
-        content = yaml.safe_load(f)
-    n_files = content['n_files']
-    nCPUs = content['n_CPUs']
+# def create_auto_pipeline(**kwargs) -> Pipeline:   
+#     # Read the number of files to process    
+#     with open('conf/base/file_count.yml', "r") as f:
+#         content = yaml.safe_load(f)
+#     n_files = content['n_files']
+#     nCPUs = content['n_CPUs']
 
-    p_list = Pipeline([])
-    for i in range(n_files):   
-        session = int(i/nCPUs) 
-        if session==0:
-            pipe_input = 'first_pipe_input'
-            pipe_output = f'pipe_id_{i}_{i+nCPUs}'
-        else:
-            pipe_input = f'pipe_id_{i-nCPUs}_{i}'
-            pipe_output = f'pipe_id_{i}_{i+nCPUs}'
+#     p_list = Pipeline([])
+#     for i in range(n_files):   
+#         session = int(i/nCPUs) 
+#         if session==0:
+#             pipe_input = 'first_pipe_input'
+#             pipe_output = f'pipe_id_{i}_{i+nCPUs}'
+#         else:
+#             pipe_input = f'pipe_id_{i-nCPUs}_{i}'
+#             pipe_output = f'pipe_id_{i}_{i+nCPUs}'
 
-        parse_rec_file_info_partial = partial(parse_rec_file_info,index=i)
-        update_wrapper(parse_rec_file_info_partial,parse_rec_file_info)
+#         parse_rec_file_info_partial = partial(parse_rec_file_info,index=i)
+#         update_wrapper(parse_rec_file_info_partial,parse_rec_file_info)
 
-        pipeline_key = f'pipeline_{i}'
-        rec_info_key = f'rec_info_{i}'
-        file_path_full_key = f'file_path_full_{i}'
-        node_key = f'parse_node_{i}'
+#         pipeline_key = f'pipeline_{i}'
+#         rec_info_key = f'rec_info_{i}'
+#         file_path_full_key = f'file_path_full_{i}'
+#         node_key = f'parse_node_{i}'
 
-        p_list += pipeline([
-            node(
-                func=parse_rec_file_info_partial,
-                inputs=[
-                    "data_catalog_full", 
-                    pipe_input,
-                ],
-                outputs=[
-                    rec_info_key,
-                    file_path_full_key,
-                ],
-                tags=["directory","files"],
-                name=node_key,
-            ),
-        ])
-        p_list += pipeline(
-            pipe=extract_features_pipeline(),
-            inputs={'rec_info': rec_info_key, 'file_path_full': file_path_full_key},
-            parameters={
-                'signals.start_frame': 'signals.start_frame',
-                'signals.length': 'signals.length',
-                'signals.factor': 'signals.factor',
-                'signals.min_peak_dist': 'signals.min_peak_dist',
-                'signals.before_R': 'signals.before_R',
-                'signals.after_R': 'signals.after_R',
-                'signals.T_from': 'signals.T_from',
-                'signals.T_to': 'signals.T_to',
-                'signals.s_freq': 'signals.s_freq',
-                'tablename.FP': 'tablename.FP',
-            },
-            outputs={'dummy_for_pipe': pipe_output},
-            namespace=pipeline_key,
-        )
+#         p_list += pipeline([
+#             node(
+#                 func=parse_rec_file_info_partial,
+#                 inputs=[
+#                     "data_catalog_full", 
+#                     pipe_input,
+#                 ],
+#                 outputs=[
+#                     rec_info_key,
+#                     file_path_full_key,
+#                 ],
+#                 tags=["directory","files"],
+#                 name=node_key,
+#             ),
+#         ])
+#         p_list += pipeline(
+#             pipe=extract_features_pipeline(),
+#             inputs={'rec_info': rec_info_key, 'file_path_full': file_path_full_key},
+#             parameters={
+#                 'signals.start_frame': 'signals.start_frame',
+#                 'signals.length': 'signals.length',
+#                 'signals.factor': 'signals.factor',
+#                 'signals.min_peak_dist': 'signals.min_peak_dist',
+#                 'signals.before_R': 'signals.before_R',
+#                 'signals.after_R': 'signals.after_R',
+#                 'signals.T_from': 'signals.T_from',
+#                 'signals.T_to': 'signals.T_to',
+#                 'signals.s_freq': 'signals.s_freq',
+#                 'tablename.FP': 'tablename.FP',
+#             },
+#             outputs={'dummy_for_pipe': pipe_output},
+#             namespace=pipeline_key,
+#         )
 
-    return p_list
+#     return p_list
 
 def create_single_pipeline(**kwargs) -> Pipeline:    
     parse_pipeline = pipeline([
