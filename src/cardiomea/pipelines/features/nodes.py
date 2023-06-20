@@ -43,7 +43,10 @@ def list_rec_files(data_catalog,base_directory,file_name_pattern,ext):
    
     for row in range(len(data_catalog)):
         # list all files (with specified extension) in the directory
-        rec_files = glob.glob(base_directory+str(data_catalog.loc[row,'file_path'])+"/"+file_name_pattern+"*"+ext)
+        if not file_name_pattern: # if file name pattern is not specified
+            rec_files = glob.glob(base_directory+str(data_catalog.loc[row,'file_path'])+"/*"+ext)
+        else:
+            rec_files = glob.glob(base_directory+str(data_catalog.loc[row,'file_path'])+"/"+file_name_pattern+"*"+ext)
         
         # create a new dataframe that contains both existing and new data (full file directory)
         if rec_files:
