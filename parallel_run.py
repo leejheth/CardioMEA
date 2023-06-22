@@ -14,8 +14,12 @@ n_files = content['n_files']
 nCPUs = content['n_CPUs']
 
 def run_pipeline(index):    
-    session = KedroSession.create(extra_params={"file_index": index})
-    session.run(pipeline_name="single_pipeline", runner=SequentialRunner())
+    try: 
+        session = KedroSession.create(extra_params={"file_index": index})
+        session.run(pipeline_name="single_pipeline", runner=SequentialRunner())
+    except Exception:
+        print(f"Error while running the pipeline with file index {index}. Skipped.")
+        exit()
 
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d, %H:%M:%S")
 print(f"Starting parallel processing of pipelines at {timestamp}.")

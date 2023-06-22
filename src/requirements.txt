@@ -44,6 +44,8 @@ beautifulsoup4==4.12.0
     # via nbconvert
 binaryornot==0.4.4
     # via cookiecutter
+biopython==1.81
+    # via dash-bio
 black==22.12.0
     # via -r src/requirements.in
 bleach==6.0.0
@@ -74,6 +76,8 @@ click==8.1.3
     #   kedro
     #   pip-tools
     #   uvicorn
+colour==0.1.5
+    # via dash-bio
 comm==0.1.3
     # via ipykernel
 contourpy==1.0.7
@@ -87,7 +91,11 @@ cycler==0.11.0
 cython==0.29.34
     # via tables
 dash==2.9.3
-    # via dash-bootstrap-components
+    # via
+    #   dash-bio
+    #   dash-bootstrap-components
+dash-bio==1.0.2
+    # via -r src/requirements.in
 dash-bootstrap-components==1.4.1
     # via -r src/requirements.in
 dash-core-components==2.0.0
@@ -128,6 +136,8 @@ future==0.18.3
     # via
     #   nolds
     #   uncertainties
+geoparse==2.0.3
+    # via dash-bio
 gitdb==4.0.10
     # via gitpython
 gitpython==3.1.31
@@ -255,6 +265,7 @@ json5==0.9.11
     # via jupyterlab-server
 jsonschema==4.17.3
     # via
+    #   dash-bio
     #   jupyterlab-server
     #   nbformat
 jupyter==1.0.0
@@ -386,8 +397,10 @@ numpy==1.24.2
     # via
     #   -r src/requirements.in
     #   astropy
+    #   biopython
     #   contourpy
     #   db-dtypes
+    #   geoparse
     #   h5py
     #   hrv-analysis
     #   ipympl
@@ -398,6 +411,7 @@ numpy==1.24.2
     #   pandas
     #   pandas-gbq
     #   patsy
+    #   periodictable
     #   pyarrow
     #   pyerfa
     #   scikit-learn
@@ -433,7 +447,9 @@ packaging==23.0
     #   tables
 pandas==1.5.3
     # via
+    #   dash-bio
     #   db-dtypes
+    #   geoparse
     #   hrv-analysis
     #   kedro
     #   kedro-viz
@@ -443,12 +459,16 @@ pandas-gbq==0.17.9
     # via kedro
 pandocfilters==1.5.0
     # via nbconvert
+parmed==4.1.0
+    # via dash-bio
 parso==0.8.3
     # via jedi
 pathspec==0.11.1
     # via black
 patsy==0.5.3
     # via statsmodels
+periodictable==1.6.1
+    # via dash-bio
 pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
@@ -538,7 +558,9 @@ pygments==2.14.0
     #   qtconsole
     #   rich
 pyparsing==3.0.9
-    # via matplotlib
+    # via
+    #   matplotlib
+    #   periodictable
 pyproject-hooks==1.0.0
     # via build
 pyrsistent==0.19.3
@@ -591,6 +613,8 @@ qtpy==2.3.1
 requests==2.28.2
     # via
     #   cookiecutter
+    #   dash-bio
+    #   geoparse
     #   google-api-core
     #   google-cloud-bigquery
     #   jupyterlab-server
@@ -605,10 +629,13 @@ rope==1.7.0
 rsa==4.9
     # via google-auth
 scikit-learn==1.2.2
-    # via -r src/requirements.in
+    # via
+    #   -r src/requirements.in
+    #   dash-bio
 scipy==1.10.1
     # via
     #   -r src/requirements.in
+    #   dash-bio
     #   hrv-analysis
     #   lmfit
     #   scikit-learn
@@ -685,6 +712,8 @@ tornado==6.2
     #   nbclassic
     #   notebook
     #   terminado
+tqdm==4.65.0
+    # via geoparse
 traitlets==5.9.0
     # via
     #   comm

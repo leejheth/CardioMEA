@@ -3,12 +3,16 @@ This is a boilerplate pipeline 'visualize'
 generated using Kedro 0.18.7
 """
 from dash import Dash, dcc, dash_table, html, Output, Input, State
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.tools.tools import add_constant
 import dash_bootstrap_components as dbc
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import base64
+import dash_bio
 import webbrowser
 import itertools
 import logging
@@ -21,7 +25,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     
     app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-    ## Extracellular recordings
+    ##### Extracellular recordings #####
     cell_lines = cardio_db_FP["cell_line"].unique()
     cardio_db_FP["file_path"] = cardio_db_FP["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
     col_simple = ['cell_line','compound','file_path','time','note']
@@ -224,7 +228,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.update_layout(height=900)
         return fig
     
-    header = ['gain','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr','csi','cvi','modified_csi']
+    header = ['gain','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr']
 
     @app.callback(
         Output('feature_table', 'children'),
@@ -249,7 +253,106 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
 
         return dbc.Table.from_dataframe(df_T, id='feature_table', striped=True, bordered=True, hover=True)
 
-    ## Intracellular recordings
+    df_columns = cardio_db_FP.columns
+    rm_columns = ['time','cell_line','compound','note','file_path_full','file_path','gain','rec_duration','rec_proc_duration','n_electrodes_sync','r_amplitudes_str','r_amplitudes_std','r_widths_str','r_widths_std','fpds_str','fpds_std','conduction_speed_str','conduction_speed_std']
+    feature_columns = [f for f in df_columns if f not in rm_columns]
+    
+    feature_analysis = html.Div([
+        html.H4('Select features'),
+        dbc.Checklist(
+            options=[{"label": c, "value": c} for c in feature_columns],
+            value=[c for c in feature_columns],
+            id="checklist_features",
+            inline=True,
+        ),
+    ])
+
+    @app.callback(
+        [
+            Output('feat_dependency_graphs','figure'),
+            Output('dendrogram','figure'),
+        ],
+        [
+            Input('checklist_features','value'),
+            Input('datatable', 'selected_rows'),
+        ],
+        State('datatable', 'data')
+    )
+    def feat_dependency_graphs(features, selected_rows, data):
+        fig1 = make_subplots(rows=1, cols=2, subplot_titles=["Correlation","Multicollinearity"])
+        fig2 = make_subplots(rows=1, cols=1, subplot_titles=["Similarity"])
+        if len(features)<2 or len(selected_rows)<2:
+            fig1.add_trace(go.Scatter(), row=1, col=1)
+            fig1.add_trace(go.Scatter(), row=1, col=2)
+            fig1.for_each_xaxis(lambda x: x.update(showgrid=False, zeroline=False))
+            fig1.for_each_yaxis(lambda x: x.update(showgrid=False, zeroline=False))
+            fig2.add_trace(go.Scatter(), row=1, col=1)
+            fig2.for_each_xaxis(lambda x: x.update(showgrid=False, zeroline=False))
+            fig2.for_each_yaxis(lambda x: x.update(showgrid=False, zeroline=False))
+            return fig1, fig2
+        
+        selected_data = [data[i] for i in selected_rows]
+        # convert list of dict to dataframe
+        data_df = pd.DataFrame(selected_data)
+        data_df["time"] = pd.to_datetime(data_df["time"])
+        # filter only rows that are selected and preserve the selection order
+        df_selected = pd.merge(data_df["time"],cardio_db_FP, how="left", on="time", sort=False)
+        # keep only selected features
+        df_filtered = df_selected[features]
+
+        # plot correlation map using plotly
+        corr = df_filtered.corr()
+        mask = np.triu(np.ones_like(corr, dtype=bool))
+        half_corr=corr.mask(mask)
+        
+        fig1.add_trace(go.Heatmap(z=half_corr, x=corr.columns, y=corr.columns, colorscale='RdBu', zmin=-1, zmax=1, colorbar_thickness=10, colorbar_x=0.45), row=1, col=1)
+        fig1.update_xaxes(side="bottom", tickangle=45, tickvals = np.arange(len(corr)-1), row=1, col=1)
+        fig1.update_yaxes(autorange='reversed', tickvals = np.arange(1,len(corr)), row=1, col=1)
+        fig1.update_layout({'plot_bgcolor':'rgba(0,0,0,0)'})
+
+        # plot multicollinearity using VIF        
+        df = df_filtered.copy()
+        df['intercept'] = 1
+        # calculating VIF for each feature
+        vif = pd.DataFrame()
+        vif["feature"] = df.columns
+        vif["VIF"] = [variance_inflation_factor(df.values, i) for i in range(df.shape[1])]
+        vif = vif[vif['feature']!='intercept']
+
+        fig1.add_trace(go.Bar(x=vif['feature'], y=vif['VIF'], marker_color='rgb(158,202,225)'), row=1, col=2)
+        fig1.update_xaxes(tickangle=45, row=1, col=2)
+        fig1.update_yaxes(title_text="Variance inflation factor (VIF)", row=1, col=2)
+        fig1.update_layout(height=700)
+
+        # plot similarity map
+        df = df_filtered.copy()
+        df_norm = (df-df.min())/(df.max()-df.min())
+        clustergram = dash_bio.Clustergram(
+            data=df_norm.values.T,
+            row_labels=df_norm.columns.to_list(),
+            hidden_labels='column',
+            width=2000,
+            height=700,
+            cluster='row',
+            line_width=4,
+            center_values=False, 
+            color_map= [[0.0, '#71AFD9'],[1.0, '#71D993']],
+        )
+
+        return fig1, clustergram
+        
+    models_list = ['Random Forest','XGBoost','Logistic Regression']
+    select_model = html.Div([
+        html.H4('Select model'),
+        dbc.RadioItems(
+            options=[{"label": m, "value": m} for m in models_list],
+            value='Random Forest',
+            id="select_model",
+            inline=True,
+        ),
+    ])
+
+    ##### Intracellular recordings #####
     cell_lines_AP = cardio_db_AP["cell_line"].unique()
     cardio_db_AP["file_path"] = cardio_db_AP["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
 
@@ -517,7 +620,17 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                                 html.H5('Click on the link below to see documentations of the HRV features.'),
                                 dcc.Link('Link to the HRV documentation', href="https://aura-healthcare.github.io/hrv-analysis/hrvanalysis.html"),
                             ], label="Recording info", activeTabClassName="fw-bold", tab_id="tab1-2"),
-                            dbc.Tab(html.H4('Here comes feature analysis'), label="Feature analysis", activeTabClassName="fw-bold", tab_id="tab1-3"),
+                            dbc.Tab([
+                                html.Div([
+                                    feature_analysis,
+                                    html.Br(),
+                                    html.H4('Feature dependency graphs'),
+                                    dcc.Graph(id='feat_dependency_graphs'),
+                                    html.H6('Similarity'),
+                                    dcc.Graph(id='dendrogram'),
+                                    select_model,
+                                ], style={'margin-left': '15px', 'margin-right': '15px', 'margin-top': '10px'}),
+                            ], label="Feature analysis", activeTabClassName="fw-bold", tab_id="tab1-3"),
                         ], active_tab="tab1-1"), 
                     ], style={'margin-left': '15px', 'margin-right': '15px'}),
                 ], justify="center"), 
@@ -544,7 +657,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                         color="#E4E6D8"),
                     ], style={'margin-left': '10px', 'margin-right': '10px'}),
                 ], justify="center"),
-                html.Br(),
+                html.Br(), 
                 dbc.Row([
                     dbc.Col([
                         dbc.Tabs([                    

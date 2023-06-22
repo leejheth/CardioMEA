@@ -9,6 +9,7 @@ setup:
 	conda env remove -y -n $(ENV) && \
 	conda create -y -n $(ENV) python=3.9 && \
 	conda activate $(ENV) && \
+	python -m pip install pip==23.0.1 && \
 	python -m pip install -r src/requirements.txt && \
 	echo 'PYTHONPATH=$(PWD)/src:$$PYTHONPATH' > .env && \
 	echo 'CardioMEA project setup successful.' && \
