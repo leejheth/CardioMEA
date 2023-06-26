@@ -2,14 +2,15 @@
 This is a boilerplate pipeline 'visualize'
 generated using Kedro 0.18.7
 """
-from dash import Dash, dcc, dash_table, html, Output, Input, State
+from dash import Dash, dcc, dash_table, html, Output, Input, State, ctx
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.tools.tools import add_constant
+from optimalflow.autoFS import dynaFS_clf
+from plotly.subplots import make_subplots
 import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import pandas as pd
 import base64
 import dash_bio
@@ -121,30 +122,18 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     def reset_selected_rows(checklist_cell_lines, checklist_compounds, switch, reset):
         return []
 
-    # Define callback to display selected rows
-    @app.callback(
-        Output('selected_data', 'children'),
-        Input('datatable', 'selected_rows'),
-        State('datatable', 'data')
-    )
-    def display_selected_rows(selected_rows, data):
-        if not selected_rows:
-            return ''
-        selected_data = [data[i] for i in selected_rows]
-        return html.Div([
-            html.H4('Selected Files in Order:'),
-            html.Ul([
-                html.Li(f"file_{cnt+1}: {row['cell_line']} ({row['file_path']})")
-                for cnt, row in enumerate(selected_data)
-            ])
-        ])
+    header = ['gain','n_electrodes_sync','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr']
 
     @app.callback(
-        Output('tab1_graphs', 'figure'),
+        [
+            Output('selected_data', 'children'),
+            Output('tab1_graphs', 'figure'),
+            Output('feature_table', 'children'),
+        ],
         Input('datatable', 'selected_rows'),
         State('datatable', 'data')
     )
-    def tab1_graphs(selected_rows, data):
+    def filelist_graphs_table(selected_rows, data):
         fig = make_subplots(
             rows=2, cols=2, subplot_titles=("R amplitude", "R width", "FPD", "Conduction speed")
         )
@@ -155,14 +144,22 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
             fig.add_trace(go.Scatter(), row=2, col=2)
             fig.for_each_xaxis(lambda x: x.update(showgrid=False, zeroline=False))
             fig.for_each_yaxis(lambda x: x.update(showgrid=False, zeroline=False))
-            return fig
+            return '', fig, ''
 
         selected_data = [data[i] for i in selected_rows]
+        selected_file_list = html.Div([
+            html.H4('Selected Files in Order:'),
+            html.Ul([
+                html.Li(f"file_{cnt+1}: {row['cell_line']} ({row['file_path']})")
+                for cnt, row in enumerate(selected_data)
+            ])
+        ])
+
         # convert list of dict to dataframe
         data_df = pd.DataFrame(selected_data)
         data_df["time"] = pd.to_datetime(data_df["time"])
         # filter only rows that are selected and preserve the selection order
-        df_selected = pd.merge(data_df["time"],cardio_db_FP, how="left", on="time", sort=False)
+        df_selected = pd.merge(data_df["time"], cardio_db_FP, how="left", on="time", sort=False)
         
         # convert string of r_amplitudes to list of int
         r_amp_list = list(df_selected['r_amplitudes_str'].apply(lambda x: list(map(int, x.split(' ')))))
@@ -226,33 +223,18 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.update_yaxes(title_text="Milli Second", showgrid=False, row=2, col=1)
         fig.update_yaxes(title_text="cm/s", showgrid=False, row=2, col=2)
         fig.update_layout(height=900)
-        return fig
-    
-    header = ['gain','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr']
 
-    @app.callback(
-        Output('feature_table', 'children'),
-        Input('datatable', 'selected_rows'),
-        State('datatable', 'data')
-    )
-    def tab2_feature_table(selected_rows, data):
-        if not selected_rows:
-            return ''
-        selected_data = [data[i] for i in selected_rows]
-        # convert list of dict to dataframe
-        data_df = pd.DataFrame(selected_data)
-        data_df["time"] = pd.to_datetime(data_df["time"])
-        # filter only rows that are selected and preserve the selection order
-        df_selected = pd.merge(data_df["time"], cardio_db_FP, how="left", on="time", sort=False)
+        # create feature table for tab 2
         df = df_selected[header].applymap(lambda x: round(x,1) if x is not None else None)
         df.insert(0,'file',[f'file_{i+1}' for i in range(len(df_selected))])
         df_T = df.T
         df_T.rename(columns=df_T.iloc[0], inplace=True)
         df_T.drop(df_T.index[0], inplace=True)  
-        df_T.reset_index(drop=False, inplace=True)  
+        df_T.reset_index(drop=False, inplace=True)
+        feat_table = dbc.Table.from_dataframe(df_T, id='feature_table', striped=True, bordered=True, hover=True)
 
-        return dbc.Table.from_dataframe(df_T, id='feature_table', striped=True, bordered=True, hover=True)
-
+        return selected_file_list, fig, feat_table
+    
     df_columns = cardio_db_FP.columns
     rm_columns = ['time','cell_line','compound','note','file_path_full','file_path','gain','rec_duration','rec_proc_duration','n_electrodes_sync','r_amplitudes_str','r_amplitudes_std','r_widths_str','r_widths_std','fpds_str','fpds_std','conduction_speed_str','conduction_speed_std']
     feature_columns = [f for f in df_columns if f not in rm_columns]
@@ -296,7 +278,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         data_df = pd.DataFrame(selected_data)
         data_df["time"] = pd.to_datetime(data_df["time"])
         # filter only rows that are selected and preserve the selection order
-        df_selected = pd.merge(data_df["time"],cardio_db_FP, how="left", on="time", sort=False)
+        df_selected = pd.merge(data_df["time"], cardio_db_FP, how="left", on="time", sort=False)
         # keep only selected features
         df_filtered = df_selected[features]
 
@@ -341,16 +323,161 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
 
         return fig1, clustergram
         
-    models_list = ['Random Forest','XGBoost','Logistic Regression']
-    select_model = html.Div([
-        html.H4('Select model'),
-        dbc.RadioItems(
-            options=[{"label": m, "value": m} for m in models_list],
-            value='Random Forest',
-            id="select_model",
-            inline=True,
-        ),
+    # automated feature selection using Optimal Flow
+    auto_feat_selection = dbc.Card([
+        html.Div([
+            html.H4('Automated feature selection'),
+            dbc.Row([
+                dbc.Col([
+                    html.H5('How many features to select?'),
+                    dcc.Slider(
+                        id='slider_feat_selection',
+                        min=2,
+                        max=len(feature_columns),
+                        step=1,
+                        value=2,
+                    ),
+                ]),
+                dbc.Col([
+                    html.H5('Best features calculated by Optimal Flow'),
+                    html.Div(id='best_features'),
+                ]),
+            ]),
+        ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}),
     ])
+
+    @app.callback(
+        Output('slider_feat_selection','max'),
+        Input('checklist_features','value'),
+    )
+    def set_slider_range(features):
+        if len(features)<2:
+            return 2
+        else:
+            return len(features) 
+    
+    @app.callback(
+        Output('best_features','children'),
+        [
+            Input('slider_feat_selection','value'),
+            Input('checklist_features','value'),
+            Input('datatable', 'selected_rows'),
+        ],
+        State('datatable', 'data')
+    )
+    def auto_feature_selection(n_desired, features, selected_rows, data):
+        if len(features)<2 or len(selected_rows)<2:
+            return 'Select more features and/or more data rows.'
+        selected_data = [data[i] for i in selected_rows]
+        # convert list of dict to dataframe
+        data_df = pd.DataFrame(selected_data)
+        data_df["time"] = pd.to_datetime(data_df["time"])
+        # filter only rows that are selected and preserve the selection order
+        df_selected = pd.merge(data_df["time"], cardio_db_FP, how="left", on="time", sort=False)
+        # keep only selected features
+        df_filtered = df_selected[features+['cell_line']]
+
+        # define dataset
+        X = df_filtered.drop('cell_line',axis=1,inplace=False)
+        # remove rows which contain NaN
+        y = df_filtered.loc[X.notna().all(axis=1),'cell_line']
+        X = X.loc[X.notna().all(axis=1)]
+
+        clf_fs = dynaFS_clf(fs_num=n_desired, cv=3, input_from_file=True)
+        feat_list = clf_fs.fit(X,y)
+
+        return html.Div([
+            html.Ul([html.Li(f) for f in feat_list[1]])
+        ])
+
+    autoML = dbc.Card([
+        html.Div([
+            html.H4('Automated machine learning'),
+            dbc.Row([
+                dbc.Col([
+                    html.H5("Missing data"),
+                    dbc.RadioItems(
+                        options=[
+                            {"label": "Drop missing data", "value": 'drop'},
+                            {"label": "Impute missing data", "value": 'impute'},
+                        ],
+                        value='drop',
+                        id="impute_input",
+                    ),
+                ]),
+                dbc.Col([
+                    html.H5("Cross validation folds"),
+                    dbc.Input(id='cv', type="number", min=2, max=10, step=1, value=5),
+                ]),
+                dbc.Col([
+                    html.H5("Total time limit (min)"),
+                    dbc.Input(id='time_limit', type="number", min=1, max=30, step=1, value=3),
+                ]),
+                dbc.Col([
+                    html.H5("Permutation repeats"),
+                    dbc.Input(id='perm_repeats', type="number", min=1, max=20, step=1, value=10),
+                ]),
+            ]),
+            html.Br(),
+            dbc.Button("Run", id="run_automl", className="mb-3", color="primary", n_clicks=0),
+            dcc.Interval(id="progress_interval", n_intervals=0, interval=500, disabled=True),
+            dbc.Collapse(dbc.Progress(id="progress"), id="collapse", is_open=False),
+        ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}),
+    ])
+
+    @app.callback(
+        Output("progress_interval", "max_intervals"),
+        Input("progress", "value"), 
+    )
+    def stop_progress_bar(prog):
+        if prog==100:
+            return 0
+        else:
+            return -1
+    
+    @app.callback(
+        [
+            Output("progress_interval", "n_intervals"),
+            Output("progress_interval", "disabled"),
+            Output("collapse", "is_open"),
+        ],
+        [
+            Input("run_automl", "n_clicks"),
+            Input("impute_input", "value"),
+            Input("cv", "value"),
+            Input("time_limit", "value"),
+            Input("perm_repeats", "value"),
+        ],
+    )
+    def reset_progress_bar(n_clicks, impute, cv, time_limit, perm_repeats):
+        updated_input = ctx.triggered_id
+        if updated_input=='run_automl': # if Run button is pressed
+            return 0, False, True
+        else: # if configuration is changed
+            return 0, True, False
+
+    @app.callback(
+        [
+            Output("progress", "value"), 
+            Output("progress", "label"),
+        ],
+        [
+            Input("progress_interval", "n_intervals"),
+            Input("progress_interval", "interval"),
+            Input("time_limit", "value"),
+            Input("run_automl", "n_clicks"),
+        ],
+    )
+    def update_progress_bar(n, interval, time_limit, n_clicks):
+        print(n)
+        if n_clicks:
+            time_limit_ms = time_limit * 60 * 1000
+            progress = round(100 * n * interval / time_limit_ms)
+            # only add text after 5% progress 
+            return progress, f"{progress} %" if progress >= 5 else ""
+        else:
+            return 0, ""
+       
 
     ##### Intracellular recordings #####
     cell_lines_AP = cardio_db_AP["cell_line"].unique()
@@ -444,31 +571,19 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     )
     def reset_selected_rows_AP(checklist_cell_lines, checklist_compounds, switch, reset):
         return []
-
-    # Define callback to display selected rows
-    @app.callback(
-        Output('selected_data_AP', 'children'),
-        Input('datatable_AP', 'selected_rows'),
-        State('datatable_AP', 'data')
-    )
-    def display_selected_rows_AP(selected_rows, data):
-        if not selected_rows:
-            return ''
-        selected_data = [data[i] for i in selected_rows]
-        return html.Div([
-            html.H4('Selected Files in Order:'),
-            html.Ul([
-                html.Li(f"file_{cnt+1}: {row['cell_line']} ({row['file_path']})")
-                for cnt, row in enumerate(selected_data)
-            ])
-        ])
+    
+    header_AP = ['gain','rec_duration','rec_proc_duration','electroporation_yield','n_electrodes']
     
     @app.callback(
-        Output('tab1_graphs_AP', 'figure'),
+        [
+            Output('selected_data_AP', 'children'),
+            Output('tab1_graphs_AP', 'figure'),
+            Output('feature_table_AP', 'children'),
+        ],
         Input('datatable_AP', 'selected_rows'),
         State('datatable_AP', 'data')
     )
-    def tab1_graphs_AP(selected_rows, data):
+    def filelist_graphs_table_AP(selected_rows, data):
         fig = make_subplots(
             rows=2, cols=2, subplot_titles=("Amplitude", "Depolarization time", "APD50", "APD90")
         )
@@ -479,9 +594,17 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
             fig.add_trace(go.Scatter(), row=2, col=2)
             fig.for_each_xaxis(lambda x: x.update(showgrid=False, zeroline=False))
             fig.for_each_yaxis(lambda x: x.update(showgrid=False, zeroline=False))
-            return fig
+            return '', fig, ''
         
         selected_data = [data[i] for i in selected_rows]
+        selected_file_list = html.Div([
+            html.H4('Selected Files in Order:'),
+            html.Ul([
+                html.Li(f"file_{cnt+1}: {row['cell_line']} ({row['file_path']})")
+                for cnt, row in enumerate(selected_data)
+            ])
+        ])
+
         # convert list of dict to dataframe
         data_df = pd.DataFrame(selected_data)
         data_df["time"] = pd.to_datetime(data_df["time"])
@@ -550,32 +673,17 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.update_yaxes(title_text="Milli Second", showgrid=False, row=2, col=1)
         fig.update_yaxes(title_text="Milli Second", showgrid=False, row=2, col=2)
         fig.update_layout(height=900)
-        return fig
 
-    header_AP = ['gain','rec_duration','rec_proc_duration','electroporation_yield','n_electrodes']
-
-    @app.callback(
-        Output('feature_table_AP', 'children'),
-        Input('datatable_AP', 'selected_rows'),
-        State('datatable_AP', 'data')
-    )
-    def tab2_feature_table_AP(selected_rows, data):
-        if not selected_rows:
-            return ''
-        selected_data = [data[i] for i in selected_rows]
-        # convert list of dict to dataframe
-        data_df = pd.DataFrame(selected_data)
-        data_df["time"] = pd.to_datetime(data_df["time"])
-        # filter only rows that are selected and preserve the selection order
-        df_selected = pd.merge(data_df["time"], cardio_db_AP, how="left", on="time", sort=False)
+        # create feature table for tab 2
         df = df_selected[header_AP].applymap(lambda x: round(x,1) if x is not None else None)
         df.insert(0,'file',[f'file_{i+1}' for i in range(len(df_selected))])
         df_T = df.T
         df_T.rename(columns=df_T.iloc[0], inplace=True)
         df_T.drop(df_T.index[0], inplace=True)  
         df_T.reset_index(drop=False, inplace=True)  
-
-        return dbc.Table.from_dataframe(df_T, id='feature_table_AP', striped=True, bordered=True, hover=True)
+        feat_table = dbc.Table.from_dataframe(df_T, id='feature_table_AP', striped=True, bordered=True, hover=True)
+        
+        return selected_file_list, fig, feat_table
 
     app.layout = html.Div([
         dbc.Row([
@@ -626,9 +734,11 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                                     html.Br(),
                                     html.H4('Feature dependency graphs'),
                                     dcc.Graph(id='feat_dependency_graphs'),
-                                    html.H6('Similarity'),
+                                    html.H5('Similarity'),
                                     dcc.Graph(id='dendrogram'),
-                                    select_model,
+                                    auto_feat_selection,
+                                    html.Br(),
+                                    autoML,
                                 ], style={'margin-left': '15px', 'margin-right': '15px', 'margin-top': '10px'}),
                             ], label="Feature analysis", activeTabClassName="fw-bold", tab_id="tab1-3"),
                         ], active_tab="tab1-1"), 
