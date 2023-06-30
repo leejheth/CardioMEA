@@ -3,10 +3,14 @@ This is a boilerplate pipeline 'visualize'
 generated using Kedro 0.18.7
 """
 from dash import Dash, dcc, dash_table, html, Output, Input, State, ctx
+from dash.exceptions import PreventUpdate
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.tools.tools import add_constant
 from optimalflow.autoFS import dynaFS_clf
 from plotly.subplots import make_subplots
+from sklearn.inspection import permutation_importance
+from autosklearn.classification import AutoSklearnClassifier
+from sklearn.model_selection import StratifiedKFold
 import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.express as px
@@ -292,23 +296,31 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig1.update_yaxes(autorange='reversed', tickvals = np.arange(1,len(corr)), row=1, col=1)
         fig1.update_layout({'plot_bgcolor':'rgba(0,0,0,0)'})
 
-        # plot multicollinearity using VIF        
-        df = df_filtered.copy()
-        df['intercept'] = 1
-        # calculating VIF for each feature
-        vif = pd.DataFrame()
-        vif["feature"] = df.columns
-        vif["VIF"] = [variance_inflation_factor(df.values, i) for i in range(df.shape[1])]
-        vif = vif[vif['feature']!='intercept']
+        # plot multicollinearity using VIF    
+        # calculate VIF only if number of selected features is less than number of selected files    
+        if len(selected_rows) > len(features):
+            df = df_filtered.copy()
+            # fill missing values with mean value of each feature
+            df.fillna(value=df.mean(), inplace=True)
+            df['intercept'] = 1
+            # calculating VIF for each feature
+            vif = pd.DataFrame()
+            vif["feature"] = df.columns
+            vif["VIF"] = [variance_inflation_factor(df.values, i) for i in range(df.shape[1])]
+            vif = vif[vif['feature']!='intercept']
 
-        fig1.add_trace(go.Bar(x=vif['feature'], y=vif['VIF'], marker_color='rgb(158,202,225)'), row=1, col=2)
-        fig1.update_xaxes(tickangle=45, row=1, col=2)
-        fig1.update_yaxes(title_text="Variance inflation factor (VIF)", row=1, col=2)
-        fig1.update_layout(height=700)
+            fig1.add_trace(go.Bar(x=vif['feature'], y=vif['VIF'], marker_color='rgb(158,202,225)'), row=1, col=2)
+            fig1.update_xaxes(tickangle=45, row=1, col=2)
+            fig1.update_yaxes(title_text="Variance inflation factor (VIF)", row=1, col=2)
+            fig1.update_layout(height=700)
 
         # plot similarity map
         df = df_filtered.copy()
+        # fill missing values with mean value of each feature
+        df.fillna(value=df.mean(), inplace=True)
         df_norm = (df-df.min())/(df.max()-df.min())
+        # fill missing values with 0, where 0 means data points are all the same in that feature
+        df_norm.fillna(value=0, inplace=True)
         clustergram = dash_bio.Clustergram(
             data=df_norm.values.T,
             row_labels=df_norm.columns.to_list(),
@@ -319,6 +331,10 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
             line_width=4,
             center_values=False, 
             color_map= [[0.0, '#71AFD9'],[1.0, '#71D993']],
+            color_list={
+                'row': ['#636EFA', '#00CC96', '#19D3F3'],
+                'bg': '#506784'
+            },
         )
 
         return fig1, clustergram
@@ -338,10 +354,11 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                         value=2,
                     ),
                 ]),
+                dbc.Col(html.Div(dbc.Button("Run", id="run_optflow", color="primary", n_clicks=0), className="d-grid col-6 mx-auto"), width=2),
                 dbc.Col([
                     html.H5('Best features calculated by Optimal Flow'),
                     html.Div(id='best_features'),
-                ]),
+                ], width=3),
             ]),
         ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}),
     ])
@@ -360,69 +377,100 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         Output('best_features','children'),
         [
             Input('slider_feat_selection','value'),
+            Input('run_optflow','n_clicks'),
             Input('checklist_features','value'),
             Input('datatable', 'selected_rows'),
         ],
         State('datatable', 'data')
     )
-    def auto_feature_selection(n_desired, features, selected_rows, data):
-        if len(features)<2 or len(selected_rows)<2:
-            return 'Select more features and/or more data rows.'
-        selected_data = [data[i] for i in selected_rows]
-        # convert list of dict to dataframe
-        data_df = pd.DataFrame(selected_data)
-        data_df["time"] = pd.to_datetime(data_df["time"])
-        # filter only rows that are selected and preserve the selection order
-        df_selected = pd.merge(data_df["time"], cardio_db_FP, how="left", on="time", sort=False)
-        # keep only selected features
-        df_filtered = df_selected[features+['cell_line']]
+    def auto_feature_selection(n_desired, n_clicks, features, selected_rows, data):
+        updated_input = ctx.triggered_id
+        if updated_input=='run_optflow': # if Run button is pressed
+            if len(features)<2 or len(selected_rows)<2:
+                return 'Select more features and/or more data rows.'
+            selected_data = [data[i] for i in selected_rows]
+            # convert list of dict to dataframe
+            data_df = pd.DataFrame(selected_data)
+            data_df["time"] = pd.to_datetime(data_df["time"])
+            # filter only rows that are selected and preserve the selection order
+            df_selected = pd.merge(data_df["time"], cardio_db_FP, how="left", on="time", sort=False)
+            # keep only selected features
+            df_filtered = df_selected[features+['cell_line']]
 
-        # define dataset
-        X = df_filtered.drop('cell_line',axis=1,inplace=False)
-        # remove rows which contain NaN
-        y = df_filtered.loc[X.notna().all(axis=1),'cell_line']
-        X = X.loc[X.notna().all(axis=1)]
+            # define dataset
+            X = df_filtered.drop('cell_line',axis=1,inplace=False)
+            # remove rows which contain NaN
+            y = df_filtered.loc[X.notna().all(axis=1),'cell_line']
+            X = X.loc[X.notna().all(axis=1)]
 
-        clf_fs = dynaFS_clf(fs_num=n_desired, cv=3, input_from_file=True)
-        feat_list = clf_fs.fit(X,y)
+            clf_fs = dynaFS_clf(fs_num=n_desired, cv=3, input_from_file=True)
+            feat_list = clf_fs.fit(X,y)
 
-        return html.Div([
-            html.Ul([html.Li(f) for f in feat_list[1]])
-        ])
+            return html.Div([
+                html.Ul([html.Li(f) for f in feat_list[1]])
+            ])
+        else:
+            return 'Click Run'
 
-    autoML = dbc.Card([
-        html.Div([
-            html.H4('Automated machine learning'),
-            dbc.Row([
-                dbc.Col([
-                    html.H5("Missing data"),
-                    dbc.RadioItems(
-                        options=[
-                            {"label": "Drop missing data", "value": 'drop'},
-                            {"label": "Impute missing data", "value": 'impute'},
-                        ],
-                        value='drop',
-                        id="impute_input",
-                    ),
+    autoML = html.Div([
+        dbc.Card([
+            html.Div([
+                html.H4('Automated machine learning'),
+                dbc.Row([
+                    dbc.Col([
+                        html.H5("Missing data"),
+                        dbc.RadioItems(
+                            options=[
+                                {"label": "Drop missing data", "value": 'drop'},
+                                {"label": "Impute missing data", "value": 'impute'},
+                            ],
+                            value='drop',
+                            id="impute_input",
+                        ),
+                    ]),
+                    dbc.Col([
+                        html.H5("Cross validation folds"),
+                        dbc.Input(id='cv', type="number", min=2, max=10, step=1, value=5),
+                    ]),
+                    dbc.Col([
+                        html.H5("Time limit per fold (min)"),
+                        dbc.Input(id='time_limit', type="number", min=1, max=30, step=1, value=3),
+                    ]),
+                    dbc.Col([
+                        html.H5("Permutation repeats"),
+                        dbc.Input(id='perm_repeats', type="number", min=1, max=20, step=1, value=10),
+                    ]),
                 ]),
-                dbc.Col([
-                    html.H5("Cross validation folds"),
-                    dbc.Input(id='cv', type="number", min=2, max=10, step=1, value=5),
+                html.Br(),
+                dbc.Button("Run AutoML", id="run_automl", className="mb-3", color="primary", n_clicks=0),
+                dcc.Interval(id="progress_interval", n_intervals=0, interval=500, disabled=True),
+                dbc.Collapse(dbc.Progress(id="progress"), id="collapse", is_open=False),
+            ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}),
+        ]),
+        html.Br(),
+        dbc.Card([
+            html.Div([
+                dbc.Row([
+                    dbc.Col(html.Div(id='automl_scores', style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '10px', 'margin-bottom': '10px'}), width=3),
+                    dbc.Col(html.Div(
+                            [
+                                html.H5("Feature importance"), 
+                                dbc.Label("Select dataset"),
+                                dbc.RadioItems(
+                                    options=[
+                                        {"label": "Training data", "value": 'train_data'},
+                                        {"label": "Test data", "value": 'test_data'},
+                                    ],
+                                    value='test_data', id="dataset_input", inline=True,
+                                ),
+                                html.Div(dcc.Graph(id='automl_perm_train'), hidden=True), # hidden graph to store data
+                                html.Div(dcc.Graph(id='automl_perm_test'), hidden=True), # hidden graph to store data
+                                dcc.Graph(id='automl_perm'),
+                            ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '10px'}
+                    )),
                 ]),
-                dbc.Col([
-                    html.H5("Total time limit (min)"),
-                    dbc.Input(id='time_limit', type="number", min=1, max=30, step=1, value=3),
-                ]),
-                dbc.Col([
-                    html.H5("Permutation repeats"),
-                    dbc.Input(id='perm_repeats', type="number", min=1, max=20, step=1, value=10),
-                ]),
-            ]),
-            html.Br(),
-            dbc.Button("Run", id="run_automl", className="mb-3", color="primary", n_clicks=0),
-            dcc.Interval(id="progress_interval", n_intervals=0, interval=500, disabled=True),
-            dbc.Collapse(dbc.Progress(id="progress"), id="collapse", is_open=False),
-        ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}),
+            ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}),
+        ]),
     ])
 
     @app.callback(
@@ -465,19 +513,142 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
             Input("progress_interval", "n_intervals"),
             Input("progress_interval", "interval"),
             Input("time_limit", "value"),
+            Input("cv", "value"),
             Input("run_automl", "n_clicks"),
         ],
     )
-    def update_progress_bar(n, interval, time_limit, n_clicks):
-        print(n)
+    def update_progress_bar(n, interval, time_limit, cv, n_clicks):
         if n_clicks:
-            time_limit_ms = time_limit * 60 * 1000
+            time_limit_ms = time_limit * 60 * 1000 * cv 
             progress = round(100 * n * interval / time_limit_ms)
-            # only add text after 5% progress 
-            return progress, f"{progress} %" if progress >= 5 else ""
+            return progress, f"{progress} %" if progress >= 5 else "" # add text only after 5% progress 
         else:
             return 0, ""
        
+    @app.callback(
+        [
+            Output("automl_scores", "children"),
+            Output("automl_perm_train", "figure"),
+            Output("automl_perm_test", "figure"),
+        ],
+        [
+            Input("run_automl", "n_clicks"),
+            Input("impute_input", "value"),
+            Input("cv", "value"),
+            Input("time_limit", "value"),
+            Input("perm_repeats", "value"),
+            Input('checklist_features','value'),
+            Input('datatable', 'selected_rows'),
+        ],
+        [
+            State('dataset_input','value'),
+            State('datatable', 'data'),
+        ],
+    )
+    def automl(n_clicks, impute, cv, time_limit, perm_repeats, features, selected_rows, dataset, data):
+        updated_input = ctx.triggered_id
+        if updated_input=='run_automl': # if Run button is pressed
+            selected_data = [data[i] for i in selected_rows]
+            # convert list of dict to dataframe
+            data_df = pd.DataFrame(selected_data)
+            # check if at least 2 cell lines are selected
+            if data_df['cell_line'].unique().size < 2:
+                return 'Please select at least 2 cell lines.', go.Figure(), True, go.Figure(), False
+            else:
+                data_df["time"] = pd.to_datetime(data_df["time"])
+                # filter only rows that are selected and preserve the selection order
+                df_selected = pd.merge(data_df["time"], cardio_db_FP, how="left", on="time", sort=False)
+                # keep only selected features
+                df_filtered = df_selected[features+['cell_line']]
+
+                if impute == 'drop':
+                    ## drop NaN entries
+                    y = df_filtered.loc[df_filtered.notna().all(axis=1),'cell_line'].to_numpy()
+                    X = df_filtered.loc[df_filtered.notna().all(axis=1)].drop('cell_line',axis=1,inplace=False).values
+                else:
+                    ## keep NaN entries (will be later imputed by mean values)
+                    X = df_filtered.drop('cell_line',axis=1,inplace=False).values
+                    y = df_filtered['cell_line'].to_numpy()
+
+                train_scores=[]
+                test_scores=[]
+                feat_imp_train = pd.DataFrame(columns=features)
+                feat_imp_test = pd.DataFrame(columns=features)
+                skf = StratifiedKFold(n_splits=cv)
+                for train_index, test_index in skf.split(X, y):
+                    X_train, X_test = X[train_index], X[test_index]
+                    y_train, y_test = y[train_index], y[test_index]
+
+                    # run AutoML
+                    automl = AutoSklearnClassifier(
+                        time_left_for_this_task = time_limit * 60,
+                        per_run_time_limit = 30,
+                        # do not create an ensemble of top-performin models to prevent overfitting.
+                        ensemble_kwargs = {'ensemble_size': 1},
+                        initial_configurations_via_metalearning = 0,
+                        n_jobs = 4,
+                    )
+                    automl.fit(X_train, y_train)
+
+                    # get performance scores (accuracy)   
+                    train_scores.append(automl.score(X_train, y_train))
+                    test_scores.append(automl.score(X_test, y_test))
+
+                    # get feature importances (permutation analysis)
+                    r = permutation_importance(automl, X_train, y_train, n_repeats=perm_repeats)
+                    sort_idx = r.importances_mean.argsort()[::-1]
+                    feat_imp_train = pd.concat([feat_imp_train, pd.DataFrame(r.importances[sort_idx].T, columns=features)], ignore_index=True)
+
+                    r = permutation_importance(automl, X_test, y_test, n_repeats=perm_repeats)
+                    sort_idx = r.importances_mean.argsort()[::-1]
+                    feat_imp_test = pd.concat([feat_imp_test, pd.DataFrame(r.importances[sort_idx].T, columns=features)], ignore_index=True)
+                
+                output = html.Div([
+                    html.H5("AutoML scores"),
+                    html.Ul([
+                        html.Li(f"Training data score: {np.mean(train_scores):.3f} +/- {np.std(train_scores):.3f}"),
+                        html.Li(f"Test data score: {np.mean(test_scores):.3f} +/- {np.std(test_scores):.3f}"),
+                    ]),
+                ])
+
+                fig1 = go.Figure()
+                feat_imp_train.loc['mean'] = feat_imp_train.mean()
+                feat_imp_train.sort_values(by='mean', axis=1, ascending=False, inplace=True)
+                for f in feat_imp_train.columns:
+                    fig1.add_trace(go.Box(y=feat_imp_train[f], name=f, showlegend=False))
+                fig1.update_layout(xaxis_title="Features", yaxis_title="Feature importance")
+                fig1.update_xaxes(tickangle=45)
+                
+                fig2 = go.Figure()
+                feat_imp_test.loc['mean'] = feat_imp_test.mean()
+                feat_imp_test.sort_values(by='mean', axis=1, ascending=False, inplace=True)
+                for f in feat_imp_test.columns:
+                    fig2.add_trace(go.Box(y=feat_imp_test[f], name=f, showlegend=False))                                
+                fig2.update_layout(xaxis_title="Features", yaxis_title="Feature importance")
+                fig2.update_xaxes(tickangle=45)
+
+                return output, fig1, fig2
+
+        else: 
+            output = html.Div([
+                html.H5("AutoML scores"),
+                html.P("Click Run AutoML to start AutoML training."),
+            ])
+            return output, go.Figure(), go.Figure()
+
+    @app.callback(
+        Output("automl_perm", "figure"),
+        [
+            Input("dataset_input", "value"),
+            Input("automl_perm_train", "figure"),
+            Input("automl_perm_test", "figure"),
+        ]
+    )
+    def update_automl_perm(dataset, fig1, fig2):
+        if dataset == 'train_data':
+            return fig1
+        else:
+            return fig2
 
     ##### Intracellular recordings #####
     cell_lines_AP = cardio_db_AP["cell_line"].unique()
@@ -732,10 +903,15 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                                 html.Div([
                                     feature_analysis,
                                     html.Br(),
-                                    html.H4('Feature dependency graphs'),
-                                    dcc.Graph(id='feat_dependency_graphs'),
-                                    html.H5('Similarity'),
-                                    dcc.Graph(id='dendrogram'),
+                                    dbc.Card(
+                                        html.Div([
+                                            html.H4('Feature dependency graphs'),
+                                            dcc.Graph(id='feat_dependency_graphs'),
+                                            html.H5('Similarity'),
+                                            dcc.Graph(id='dendrogram'),
+                                        ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px'}),
+                                    ),
+                                    html.Br(),
                                     auto_feat_selection,
                                     html.Br(),
                                     autoML,

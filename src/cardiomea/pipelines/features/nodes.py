@@ -43,10 +43,6 @@ def list_rec_files(data_catalog,base_directory,file_name_pattern,ext):
    
     for row in range(len(data_catalog)):
         # list all files (with specified extension) in the directory
-        # if not file_name_pattern: # if file name pattern is not specified
-        #     rec_files = glob.glob(base_directory+str(data_catalog.loc[row,'file_path'])+"/*"+ext)
-        # else:
-        #     rec_files = glob.glob(base_directory+str(data_catalog.loc[row,'file_path'])+"/"+file_name_pattern+"*"+ext)
         rec_files = glob.glob(base_directory+str(data_catalog.loc[row,'file_path'])+"/"+file_name_pattern+"*"+ext)
         
         # create a new dataframe that contains both existing and new data (full file directory)
@@ -127,15 +123,26 @@ def extract_data(file_path_full, start_frame, length, s_freq):
     """
     obj = h5py.File(file_path_full, mode='r')
 
+    if obj.get('version')[0].decode() == '20160704':
+        setting_struc = 'settings'
+        map_struc = 'mapping'
+        data_struc = 'sig'
+    elif obj.get('version')[0].decode() == '20190530':
+        setting_struc = 'recordings/rec0000/well000/settings'
+        map_struc = setting_struc + '/mapping'
+        data_struc = 'data_store/data0000/groups/routed/raw'
+    else:
+        raise NotImplementedError(f"Recording file was created with version {obj.get('version')[0].decode()} and is not supported.")
+
     # get channel information
-    mapping = obj.get('mapping')
+    mapping = obj.get(map_struc)
     channels = mapping['channel']
     electrodes = mapping['electrode']
     routed_idxs = np.where(electrodes > -1)[0] # remove unused channels
     channel_ids = channels[routed_idxs]
     electrode_ids = list(electrodes[routed_idxs])
     num_channels = len(electrode_ids)
-    num_frames = obj.get('sig').shape[1]
+    num_frames = obj.get(data_struc).shape[1]
     x_locs = list(mapping['x'][routed_idxs])
     y_locs = list(mapping['y'][routed_idxs])
 
@@ -147,20 +154,17 @@ def extract_data(file_path_full, start_frame, length, s_freq):
     ])
 
     # get lsb value
-    gain = (obj['settings']['gain'][0]).astype(int)
-    if 'lsb' in obj['settings']:
-        lsb = obj['settings']['lsb'][0] * 1e6
-    else:
-        lsb = 3.3 / (1024 * gain) * 1e6
+    gain = (obj[setting_struc]['gain'][0]).astype(int)
+    lsb = obj[setting_struc]['lsb'][0] * 1e6
     
     # get raw voltage traces from all recording channels
     if start_frame < (num_frames-1):
         if (start_frame+length) > num_frames:
             warnings.warn("The specified time frame exceeds the data length. Signals will be extracted until end-of-file.")
-        signals = (obj.get('sig')[channel_ids,start_frame:start_frame+length] * lsb).astype('uint16')
+        signals = (obj.get(data_struc)[channel_ids,start_frame:start_frame+length] * lsb).astype('uint16')
     else:
         warnings.warn(f"The start frame exceeds the length of data. Signals will be extracted from the start of the recording until MIN({length}-th frame, end-of-file) instead.")
-        signals = (obj.get('sig')[channel_ids,0:min(length,num_frames)] * lsb).astype('uint16')
+        signals = (obj.get(data_struc)[channel_ids,0:min(length,num_frames)] * lsb).astype('uint16')
 
     return signals, electrodes_info, gain, num_frames/s_freq, signals.shape[1]/s_freq
 
