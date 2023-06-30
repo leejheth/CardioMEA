@@ -161,10 +161,13 @@ def extract_data(file_path_full, start_frame, length, s_freq):
     if start_frame < (num_frames-1):
         if (start_frame+length) > num_frames:
             warnings.warn("The specified time frame exceeds the data length. Signals will be extracted until end-of-file.")
-        signals = (obj.get(data_struc)[channel_ids,start_frame:start_frame+length] * lsb).astype('uint16')
+        signals = (obj.get(data_struc)[:,start_frame:start_frame+length] * lsb).astype('uint16')
     else:
         warnings.warn(f"The start frame exceeds the length of data. Signals will be extracted from the start of the recording until MIN({length}-th frame, end-of-file) instead.")
-        signals = (obj.get(data_struc)[channel_ids,0:min(length,num_frames)] * lsb).astype('uint16')
+        signals = (obj.get(data_struc)[:,0:min(length,num_frames)] * lsb).astype('uint16')
+    
+    if obj.get('version')[0].decode() == '20160704':
+        signals = signals[channel_ids,:]
 
     return signals, electrodes_info, gain, num_frames/s_freq, signals.shape[1]/s_freq
 
