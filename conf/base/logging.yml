@@ -38,10 +38,13 @@ handlers:
 
 loggers:
   kedro:
-    level: INFO
+    level: ERROR
 
   cardiomea:
-    level: INFO
+    level: ERROR
+
+  werkzeug:
+    level: ERROR
 
 root:
   handlers: [rich, info_file_handler, error_file_handler]

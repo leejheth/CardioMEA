@@ -20,9 +20,6 @@ import base64
 import dash_bio
 import webbrowser
 import itertools
-import logging
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
 
 def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     bel_logo = 'data/01_raw/bel_ohne_schrift.jpg'
@@ -540,12 +537,9 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
             Input('checklist_features','value'),
             Input('datatable', 'selected_rows'),
         ],
-        [
-            State('dataset_input','value'),
-            State('datatable', 'data'),
-        ],
+        State('datatable', 'data'),
     )
-    def automl(n_clicks, impute, cv, time_limit, perm_repeats, features, selected_rows, dataset, data):
+    def automl(n_clicks, impute, cv, time_limit, perm_repeats, features, selected_rows, data):
         updated_input = ctx.triggered_id
         if updated_input=='run_automl': # if Run button is pressed
             selected_data = [data[i] for i in selected_rows]
@@ -960,8 +954,8 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
 
     # open the URL with the default web browser of the user’s computer
     print("Ctrl + C to exit.")
-    # webbrowser.open_new(f"http://127.0.0.1:{port}/")
+    webbrowser.open_new(f"http://127.0.0.1:{port}/")
     
-    app.run(debug=True, port=port)
+    app.run(debug=False, port=port)
 
     

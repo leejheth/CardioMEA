@@ -14,6 +14,10 @@ from cardiomea.pipelines.visualize.pipeline import(
     create_dashboard_pipeline,
 )
 
+import logging
+log = logging.getLogger('kedro')
+log.setLevel(logging.ERROR)
+
 def register_pipelines() -> Dict[str, Pipeline]:
     """Register the project's pipelines.
 

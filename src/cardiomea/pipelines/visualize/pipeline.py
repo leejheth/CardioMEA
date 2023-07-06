@@ -8,7 +8,6 @@ from cardiomea.pipelines.visualize.nodes import (
     dashboard,
 )
 
-
 def create_pipeline(**kwargs) -> Pipeline:
     return pipeline([])
 
