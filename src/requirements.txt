@@ -349,6 +349,8 @@ jupyterlab-server==2.15.2
     #   jupyterlab
 jupyterlab-widgets==3.0.7
     # via ipywidgets
+kaleido==0.2.1
+    # via -r src/requirements.in
 kedro[pandas]==0.18.7
     # via
     #   -r src/requirements.in

@@ -15,19 +15,41 @@ import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 import pandas as pd
 import base64
 import dash_bio
 import webbrowser
 import itertools
 
-def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
+def dashboard(cardio_db_FP_all,cardio_db_AP,port,base_directory):
     bel_logo = 'data/01_raw/bel_ohne_schrift.jpg'
     logo_base64 = base64.b64encode(open(bel_logo, 'rb').read()).decode('ascii')
     
     app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     ##### Extracellular recordings #####
+    # df = cardio_db_FP_all.sort_values('time').groupby('file_path_full').tail(1).reset_index(drop=True)
+    # df_SQT5_base = df[df['file_path_full'].str.contains('base')]
+    # df_SQT5_base = df_SQT5_base[df_SQT5_base['cell_line'].str.contains('SQT5')]
+
+    # df_SQT5 = df[df['file_path_full'].str.contains('highamp_1.raw')]
+    # df_SQT5 = df_SQT5[df_SQT5['cell_line'].str.contains('SQT5')]
+
+    # df_BlHi = df[df['file_path_full'].str.contains('highamp_1.raw')]
+    # df_BlHi = df_BlHi[df_BlHi['cell_line'].str.contains('BlHi')]
+
+    # df_D5 = df[df['file_path_full'].str.contains('highamp_1.raw')]
+    # df_D5 = df_D5[df_D5['cell_line'].str.contains('D5')]
+
+    # cardio_db_FP = pd.concat([df_SQT5_base, df_SQT5, df_BlHi, df_D5], axis=0).reset_index(drop=True)
+
+    df = cardio_db_FP_all.copy()
+    df = df[~df['cell_line'].str.contains('PKP2-KO|PKP2-WT')]
+    cardio_db_FP = df[~df['file_path_full'].str.contains('overall')]
+
+    # cardio_db_FP = cardio_db_FP_all.copy()
+
     cell_lines = cardio_db_FP["cell_line"].unique()
     cardio_db_FP["file_path"] = cardio_db_FP["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
     col_simple = ['cell_line','compound','file_path','time','note']
@@ -117,11 +139,17 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
             Input("checklist_cell_lines", "value"),
             Input("checklist_compounds", "value"),
             Input("latest_only", "value"),
-            Input("reset_button", "n_clicks")
+            Input("reset_button", "n_clicks"),
+            Input("select_all_button", "n_clicks"),
+            Input("datatable", "data"),
         ],
     )
-    def reset_selected_rows(checklist_cell_lines, checklist_compounds, switch, reset):
-        return []
+    def reset_selected_rows(checklist_cell_lines, checklist_compounds, switch, reset, select_all, data):
+        updated_input = ctx.triggered_id
+        if updated_input == "select_all_button":
+            return [i for i in range(len(data))]
+        else:
+            return []
 
     header = ['gain','n_electrodes_sync','active_area_in_percent','rec_duration','rec_proc_duration','n_beats','mean_nni','sdnn','sdsd','nni_50','pnni_50','nni_20','pnni_20','rmssd','median_nni','range_nni','cvsd','cvnni','mean_hr','max_hr','min_hr','std_hr']
 
@@ -136,7 +164,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     )
     def filelist_graphs_table(selected_rows, data):
         fig = make_subplots(
-            rows=2, cols=2, subplot_titles=("R amplitude", "R width", "FPD", "Conduction speed")
+            rows=2, cols=2, subplot_titles=("R amplitude", "R width", "FPD", "Conduction speed"), horizontal_spacing=0.1, vertical_spacing=0.1
         )
         if not selected_rows:
             fig.add_trace(go.Scatter(), row=1, col=1)
@@ -172,7 +200,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['r_amplitudes_mean'].to_list(),
                          error_y_array=df_selected['r_amplitudes_std'].to_list(),
                          mode='markers',
-                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=15, line=dict(width=1)),
                          showlegend=False),
                          row=1, col=1)
         
@@ -186,7 +214,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['r_widths_mean'].to_list(),
                          error_y_array=df_selected['r_widths_std'].to_list(),
                          mode='markers',
-                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=15, line=dict(width=1)),
                          showlegend=False),
                          row=1, col=2)
 
@@ -200,7 +228,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['fpds_mean'].to_list(),
                          error_y_array=df_selected['fpds_std'].to_list(),
                          mode='markers',
-                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=15, line=dict(width=1)),
                          showlegend=False),
                          row=2, col=1)
         
@@ -214,7 +242,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['conduction_speed_mean'].to_list(),
                          error_y_array=df_selected['conduction_speed_std'].to_list(),
                          mode='markers',
-                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=15, line=dict(width=1)),
                          showlegend=False),
                          row=2, col=2)
 
@@ -235,6 +263,21 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         feat_table = dbc.Table.from_dataframe(df_T, id='feature_table', striped=True, bordered=True, hover=True)
 
         return selected_file_list, fig, feat_table
+    
+    @app.callback(
+        Output('download_output', 'children'),
+        Input('download_button', 'n_clicks'),
+        State('tab1_graphs', 'figure'),
+    )
+    def download_output(n_clicks, fig):
+        if n_clicks==0:
+            return ''
+        elif fig is not None:
+            save_path = "data/08_reporting/data_distribution.pdf"
+            pio.write_image(fig, save_path, format="pdf", engine="kaleido", width=1200, height=900)
+            return 'Figure is downloaded to '+save_path
+        else:
+            return 'No figure to download'
     
     df_columns = cardio_db_FP.columns
     rm_columns = ['time','cell_line','compound','note','file_path_full','file_path','gain','rec_duration','rec_proc_duration','n_electrodes_sync','r_amplitudes_str','r_amplitudes_std','r_widths_str','r_widths_std','fpds_str','fpds_std','conduction_speed_str','conduction_speed_std']
@@ -322,7 +365,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
             data=df_norm.values.T,
             row_labels=df_norm.columns.to_list(),
             hidden_labels='column',
-            width=2000,
+            width=1500,
             height=700,
             cluster='row',
             line_width=4,
@@ -603,6 +646,9 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                         html.Li(f"Training data score: {np.mean(train_scores):.3f} +/- {np.std(train_scores):.3f}"),
                         html.Li(f"Test data score: {np.mean(test_scores):.3f} +/- {np.std(test_scores):.3f}"),
                     ]),
+                    html.Br(),
+                    html.H5("Best ML model"),
+                    html.P(str(list(automl.show_models().values())[0]['sklearn_classifier'])),
                 ])
 
                 fig1 = go.Figure()
@@ -750,7 +796,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     )
     def filelist_graphs_table_AP(selected_rows, data):
         fig = make_subplots(
-            rows=2, cols=2, subplot_titles=("Amplitude", "Depolarization time", "APD50", "APD90")
+            rows=2, cols=2, subplot_titles=("AP amplitude", "Depolarization time", "APD50", "APD90"), horizontal_spacing=0.1, vertical_spacing=0.1
         )
         if not selected_rows:
             fig.add_trace(go.Scatter(), row=1, col=1)
@@ -786,7 +832,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['ap_amplitudes_mean'].to_list(),
                          error_y_array=df_selected['ap_amplitudes_std'].to_list(),
                          mode='markers',
-                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=15, line=dict(width=1)),
                          showlegend=False),
                          row=1, col=1)
         
@@ -800,7 +846,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['depolarization_time_mean'].to_list(),
                          error_y_array=df_selected['depolarization_time_std'].to_list(),
                          mode='markers',
-                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=15, line=dict(width=1)),
                          showlegend=False),
                          row=1, col=2)
         
@@ -814,7 +860,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['apd50_mean'].to_list(),
                          error_y_array=df_selected['apd50_std'].to_list(),
                          mode='markers',
-                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=15, line=dict(width=1)),
                          showlegend=False),
                          row=2, col=1)
         
@@ -828,7 +874,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         fig.add_trace(go.Scatter(x=[f'file_{i+1}' for i in range(len(df_selected))], y=df_selected['apd90_mean'].to_list(),
                          error_y_array=df_selected['apd90_std'].to_list(),
                          mode='markers',
-                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=30, line=dict(width=2)),
+                         marker=dict(symbol='141', color='rgba(0,0,0,0.6)', size=15, line=dict(width=1)),
                          showlegend=False),
                          row=2, col=2)
         
@@ -849,6 +895,21 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         feat_table = dbc.Table.from_dataframe(df_T, id='feature_table_AP', striped=True, bordered=True, hover=True)
         
         return selected_file_list, fig, feat_table
+
+    @app.callback(
+        Output('download_output_AP', 'children'),
+        Input('download_button_AP', 'n_clicks'),
+        State('tab1_graphs_AP', 'figure'),
+    )
+    def download_output(n_clicks, fig):
+        if n_clicks==0:
+            return ''
+        elif fig is not None:
+            save_path = "data/08_reporting/data_distribution_AP.pdf"
+            pio.write_image(fig, save_path, format="pdf", engine="kaleido", width=1200, height=900)
+            return 'Figure is downloaded to '+save_path
+        else:
+            return 'No figure to download'
 
     app.layout = html.Div([
         dbc.Row([
@@ -876,7 +937,10 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                                 html.H4("List of processed files"),
                                 # table to show data
                                 table,
-                                dbc.Button("Reset selections", id="reset_button", color="primary", n_clicks=0),
+                                html.Div([
+                                    dbc.Button("Select all", id="select_all_button", color="primary", outline=True, size="sm", n_clicks=0),
+                                    dbc.Button("Reset selections", id="reset_button", color="primary", outline=True, size="sm", n_clicks=0),
+                                ]),
                                 html.Br(),
                                 html.Div(id='selected_data',children=[]),      
                             ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}), 
@@ -887,7 +951,11 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                 dbc.Row([
                     dbc.Col([
                         dbc.Tabs([                    
-                            dbc.Tab(dcc.Graph(id='tab1_graphs'), label="Data distribution", activeTabClassName="fw-bold", tab_id="tab1-1"),
+                            dbc.Tab([
+                                dcc.Graph(id='tab1_graphs'), 
+                                dbc.Button("Download figures as PDF", id="download_button", color="primary", outline=True, size="lg", n_clicks=0),
+                                html.Span(id="download_output", style={"verticalAlign": "middle"}),
+                            ], label="Data distribution", activeTabClassName="fw-bold", tab_id="tab1-1"),
                             dbc.Tab([
                                 html.Div(id='feature_table',children=[],style={"overflow": "scroll"}), 
                                 html.H5('Click on the link below to see documentations of the HRV features.'),
@@ -930,7 +998,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                                 html.H4("List of processed files"),
                                 # table to show data
                                 table_AP,
-                                dbc.Button("Reset selections", id="reset_button_AP", color="primary", n_clicks=0),
+                                dbc.Button("Reset selections", id="reset_button_AP", color="primary", outline=True, size="sm", n_clicks=0),
                                 html.Br(),
                                 html.Div(id='selected_data_AP',children=[]),      
                             ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}), 
@@ -941,7 +1009,11 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                 dbc.Row([
                     dbc.Col([
                         dbc.Tabs([                    
-                            dbc.Tab(dcc.Graph(id='tab1_graphs_AP'), label="Data distribution", activeTabClassName="fw-bold", tab_id="tab2-1"),
+                            dbc.Tab([
+                                dcc.Graph(id='tab1_graphs_AP'), 
+                                dbc.Button("Download figures as PDF", id="download_button_AP", color="primary", outline=True, size="lg", n_clicks=0),
+                                html.Span(id="download_output_AP", style={"verticalAlign": "middle"}),
+                                ], label="Data distribution", activeTabClassName="fw-bold", tab_id="tab2-1"),
                             dbc.Tab([
                                 html.Div(id='feature_table_AP',children=[],style={"overflow": "scroll"}), 
                                 ], label="Recording info", activeTabClassName="fw-bold", tab_id="tab2-2"),
