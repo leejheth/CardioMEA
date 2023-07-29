@@ -10,14 +10,12 @@ import numpy as np
 import pandas as pd
 import psycopg2
 import statistics as st
-import time
 import warnings
 import yaml
 import hrvanalysis as hrva
 from collections import defaultdict
 from scipy import signal
 from scipy.signal import find_peaks
-from joblib import Parallel, delayed
 from lmfit import Model, Parameters
 from psycopg2.extensions import register_adapter, AsIs
 import sympy as sym

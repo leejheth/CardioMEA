@@ -9,8 +9,9 @@ from statsmodels.tools.tools import add_constant
 from optimalflow.autoFS import dynaFS_clf
 from plotly.subplots import make_subplots
 from sklearn.inspection import permutation_importance
-from autosklearn.classification import AutoSklearnClassifier
 from sklearn.model_selection import StratifiedKFold
+from autosklearn.classification import AutoSklearnClassifier
+from autosklearn.metrics import f1, accuracy
 import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.express as px
@@ -22,34 +23,13 @@ import dash_bio
 import webbrowser
 import itertools
 
-def dashboard(cardio_db_FP_all,cardio_db_AP,port,base_directory):
+def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     bel_logo = 'data/01_raw/bel_ohne_schrift.jpg'
     logo_base64 = base64.b64encode(open(bel_logo, 'rb').read()).decode('ascii')
     
     app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     ##### Extracellular recordings #####
-    # df = cardio_db_FP_all.sort_values('time').groupby('file_path_full').tail(1).reset_index(drop=True)
-    # df_SQT5_base = df[df['file_path_full'].str.contains('base')]
-    # df_SQT5_base = df_SQT5_base[df_SQT5_base['cell_line'].str.contains('SQT5')]
-
-    # df_SQT5 = df[df['file_path_full'].str.contains('highamp_1.raw')]
-    # df_SQT5 = df_SQT5[df_SQT5['cell_line'].str.contains('SQT5')]
-
-    # df_BlHi = df[df['file_path_full'].str.contains('highamp_1.raw')]
-    # df_BlHi = df_BlHi[df_BlHi['cell_line'].str.contains('BlHi')]
-
-    # df_D5 = df[df['file_path_full'].str.contains('highamp_1.raw')]
-    # df_D5 = df_D5[df_D5['cell_line'].str.contains('D5')]
-
-    # cardio_db_FP = pd.concat([df_SQT5_base, df_SQT5, df_BlHi, df_D5], axis=0).reset_index(drop=True)
-
-    df = cardio_db_FP_all.copy()
-    df = df[~df['cell_line'].str.contains('PKP2-KO|PKP2-WT')]
-    cardio_db_FP = df[~df['file_path_full'].str.contains('overall')]
-
-    # cardio_db_FP = cardio_db_FP_all.copy()
-
     cell_lines = cardio_db_FP["cell_line"].unique()
     cardio_db_FP["file_path"] = cardio_db_FP["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
     col_simple = ['cell_line','compound','file_path','time','note']
@@ -331,9 +311,9 @@ def dashboard(cardio_db_FP_all,cardio_db_AP,port,base_directory):
         mask = np.triu(np.ones_like(corr, dtype=bool))
         half_corr=corr.mask(mask)
         
-        fig1.add_trace(go.Heatmap(z=half_corr, x=corr.columns, y=corr.columns, colorscale='RdBu', zmin=-1, zmax=1, colorbar_thickness=10, colorbar_x=0.45), row=1, col=1)
-        fig1.update_xaxes(side="bottom", tickangle=45, tickvals = np.arange(len(corr)-1), row=1, col=1)
-        fig1.update_yaxes(autorange='reversed', tickvals = np.arange(1,len(corr)), row=1, col=1)
+        fig1.add_trace(go.Heatmap(z=half_corr, x=corr.columns, y=corr.columns, colorscale='RdBu', zmin=-1, zmax=1, colorbar_thickness=10, colorbar_x=0.43), row=1, col=1)
+        fig1.update_xaxes(side="bottom", tickfont_size=13, tickangle=45, tickvals = np.arange(len(corr)-1), row=1, col=1)
+        fig1.update_yaxes(autorange='reversed', tickfont_size=13, tickvals = np.arange(1,len(corr)), row=1, col=1)
         fig1.update_layout({'plot_bgcolor':'rgba(0,0,0,0)'})
 
         # plot multicollinearity using VIF    
@@ -350,8 +330,8 @@ def dashboard(cardio_db_FP_all,cardio_db_AP,port,base_directory):
             vif = vif[vif['feature']!='intercept']
 
             fig1.add_trace(go.Bar(x=vif['feature'], y=vif['VIF'], marker_color='rgb(158,202,225)'), row=1, col=2)
-            fig1.update_xaxes(tickangle=45, row=1, col=2)
-            fig1.update_yaxes(title_text="Variance inflation factor (VIF)", row=1, col=2)
+            fig1.update_xaxes(tickangle=45, tickfont_size=13, row=1, col=2)
+            fig1.update_yaxes(title_text="Variance inflation factor (VIF)", tickfont_size=13, row=1, col=2)
             fig1.update_layout(height=700)
 
         # plot similarity map
@@ -365,8 +345,9 @@ def dashboard(cardio_db_FP_all,cardio_db_AP,port,base_directory):
             data=df_norm.values.T,
             row_labels=df_norm.columns.to_list(),
             hidden_labels='column',
-            width=1500,
-            height=700,
+            width=1300,
+            height=500,
+            tick_font={'size': 13},
             cluster='row',
             line_width=4,
             center_values=False, 
@@ -623,15 +604,18 @@ def dashboard(cardio_db_FP_all,cardio_db_AP,port,base_directory):
                         # do not create an ensemble of top-performin models to prevent overfitting.
                         ensemble_kwargs = {'ensemble_size': 1},
                         initial_configurations_via_metalearning = 0,
-                        n_jobs = 4,
+                        # metric = f1,      # default: accuracy
+                        n_jobs = -1,
                     )
                     automl.fit(X_train, y_train)
 
-                    # get performance scores (accuracy)   
+                    # get performance scores (when 'score' is used, it uses the metric defined in automl)   
                     train_scores.append(automl.score(X_train, y_train))
                     test_scores.append(automl.score(X_test, y_test))
+                    # train_scores.append(accuracy(y_train, automl.predict(X_train)))
+                    # test_scores.append(accuracy(y_test, automl.predict(X_test)))
 
-                    # get feature importances (permutation analysis)
+                    # get feature importances (permutation analysis): accuracy drop when a feature is permuted
                     r = permutation_importance(automl, X_train, y_train, n_repeats=perm_repeats)
                     sort_idx = r.importances_mean.argsort()[::-1]
                     feat_imp_train = pd.concat([feat_imp_train, pd.DataFrame(r.importances[sort_idx].T, columns=features)], ignore_index=True)
