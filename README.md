@@ -2,14 +2,21 @@
 
 ## Overview
 
-An open-source platform to process and analyze the electrophysiology data of cardiomyocytes.
-This platform processes data that are collected using microelectrode arrays (MEAs), which contains tens to thousands of electrodes.
-
+An open-source data pipeline to process, visualize, and analyze cardiomyocytes data recorded by HD-MEAs.
 
 ## Key features
-* Modular structure that makes the code easily understandable and modifiable.
-* Parallel computation of large-volume datasets (from up to 1024 read-out channels) to speed up the processing.
-* Visualization of data processing and analysis pipelines ([Kedro-Viz](https://github.com/kedro-org/kedro-viz))
+* Efficient data processing 
+  * The pipelines are coded in modular structure (Kedro framework), which makes the pipeline easily understandable and modifiable.
+  * The platform allows for parallel computation of recording files (using multiple CPUs) to speed up the processing.
+  * The platform contains processing pipelines for both extracellular and intracellular signals obtained by HD-MEAs.
+  * Processed data are stored in SQL database, preserving data history. 
+* Web-based dashboard for data visualization and analysis 
+  * No-code interactive dashboard offering enhanced compatibility with a broad range of users and workstations.
+  * The data panel allows users to select processed data from the SQL table for visualization and feature analysis. 
+* Feature analysis using automated machine learning
+  * The dashboard provides visulization tools to investigate correlations, similarity, and multicollinearity between features.
+  * With just a few mouse clicks, users can build the best performing model ([AUTO-SKLEARN](https://automl.github.io/auto-sklearn/master/)) for classification of diseased and healthy control cell lines.
+  * Feature importance analysis to estimate predictive power of each feature. 
 
 ## How to setup 
 
