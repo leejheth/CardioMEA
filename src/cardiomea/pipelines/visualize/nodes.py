@@ -81,7 +81,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         id='datatable',
         columns=[{"name": i, "id": i} for i in ['cell_line','compound','file_path','time_processed','note']],
         data=[],
-        page_size=10,    
+        page_size=5,    
         page_current=0, 
         editable=False,
         row_selectable="multi",
