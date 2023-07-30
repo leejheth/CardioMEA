@@ -172,7 +172,7 @@ def extract_features_pipeline(**kwargs) -> Pipeline:
                 "n_beats",
                 "params:tablename.FP"
             ],
-            outputs="dummy_for_pipe",
+            outputs=None,
             tags=["upload","data","SQL"],
             name="upload_to_sql_server",
         ),
@@ -185,7 +185,6 @@ def create_single_pipeline(**kwargs) -> Pipeline:
             func=parse_rec_file_info,
             inputs=[
                 "data_catalog_full", 
-                "first_pipe_input",
                 "params:file_index",
             ],
             outputs=[
@@ -205,7 +204,6 @@ def extract_AP_features_pipeline(**kwargs) -> Pipeline:
             func=parse_rec_file_info,
             inputs=[
                 "data_catalog_full", 
-                "first_pipe_input",
                 "params:file_index",
             ],
             outputs=[

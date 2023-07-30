@@ -21,8 +21,8 @@ notebooks/**
 # also keep all .gitkeep files
 !.gitkeep
 
-# except dummy data
-!data/01_raw/dummy.pkl
+# keep an example csv file for input
+!data/01_raw/catalog.csv
 
 ##########################
 # Common files

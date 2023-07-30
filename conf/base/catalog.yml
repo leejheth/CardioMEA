@@ -1,6 +1,6 @@
 data_catalog:
   type: pandas.CSVDataSet
-  filepath: data/01_raw/catalog_SQT.csv
+  filepath: data/01_raw/catalog.csv
   load_args:
     sep: ';'
     
@@ -21,11 +21,3 @@ cardio_db_AP:
   type: pandas.SQLQueryDataSet
   sql: "SELECT * FROM ap_features"
   credentials: db_credentials
-
-first_pipe_input:
-  type: pickle.PickleDataSet
-  filepath: data/01_raw/dummy.pkl
-  backend: pickle
-
-dummy_for_pipe:
-  type: MemoryDataSet

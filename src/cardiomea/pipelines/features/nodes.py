@@ -70,7 +70,7 @@ def write_yaml_file(counter, nCPUs):
         yaml.dump(data, f)
 
 
-def parse_rec_file_info(data_catalog_full, dummy, index):
+def parse_rec_file_info(data_catalog_full, index):
     """Parse the information of a recording file.
 
     Args:
@@ -568,13 +568,11 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,rec_proc_dura
 
     # upload data to SQL server
     _upload_to_sql_server(tablename, sql_columns, values)
-    
-    return 1
 
 
 def _upload_to_sql_server(tablename, sql_columns, values):
     # Get PostgreSQL database information and credentials data from text file.
-    # (.txt file format: host, database, user, password in each line)
+    # (.txt file format: host, dbname, user, password, port in each line)
     with open('conf/local/postgresql.txt', 'r') as f:
         sql_credentials = f.read().splitlines()
     

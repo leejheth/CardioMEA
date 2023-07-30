@@ -24,7 +24,7 @@ import webbrowser
 import itertools
 
 def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
-    bel_logo = 'data/01_raw/bel_ohne_schrift.jpg'
+    bel_logo = 'docs/bel_ohne_schrift.jpg'
     logo_base64 = base64.b64encode(open(bel_logo, 'rb').read()).decode('ascii')
     
     app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
