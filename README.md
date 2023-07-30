@@ -6,7 +6,7 @@ An open-source data pipeline to process, visualize, and analyze cardiomyocytes d
 
 ## Key features
 * Efficient data processing 
-  * The pipelines are coded in modular structure (Kedro framework), which makes the pipeline easily understandable and modifiable.
+  * The pipelines are coded in modular structure ([Kedro](https://kedro.org/) framework), which makes the pipeline easily understandable and modifiable.
   * The platform allows for parallel computation of recording files (using multiple CPUs) to speed up the processing.
   * The platform contains processing pipelines for both extracellular and intracellular signals obtained by HD-MEAs.
   * Processed data are stored in SQL database, preserving data history. 
@@ -18,9 +18,12 @@ An open-source data pipeline to process, visualize, and analyze cardiomyocytes d
   * With just a few mouse clicks, users can build the best performing model ([AUTO-SKLEARN](https://automl.github.io/auto-sklearn/master/)) for classification of diseased and healthy control cell lines.
   * Feature importance analysis to estimate predictive power of each feature. 
 
+## CardioMEA Dashboard
+![plot](https://github.com/leejheth/CardioMEA/blob/main/docs/dashboard.PNG?raw=true)
+
 ## How to setup 
 
-Prerequisite: Conda
+Prerequisite: [Conda installation](https://docs.conda.io/en/latest/miniconda.html)
 
 Clone the repository to your working directory.
 ```
@@ -44,9 +47,9 @@ conda activate cardio-env
 
 ## How to install additional packages in the environment
 
-Add names (and versions) of packages you need to install in `src/requirements.in`.
+Add packages, which you need to install, in `src/requirements.in`.
 
-Compile dependencies.
+Compile dependencies file.
 ```
 pip-compile src/requirements.in -o src/requirements.txt
 ```
@@ -56,109 +59,45 @@ To install them, run:
 python -m pip install -r src/requirements.txt
 ```
 
-## Rules and guidelines
+## Important note for data security
 
-In order to get the best out of the template:
-
-* Don't remove any lines from the `.gitignore` file we provide
-* Make sure your results can be reproduced by following a data engineering convention
 * Don't commit data to your repository
 * Don't commit any credentials or your local configuration to your repository. Keep all your credentials and local configuration in `conf/local/`
 
 
+## How to run pipelines in CardioMEA
 
-## How to run your Kedro pipeline
+### Data processing
 
-You can run your Kedro project with:
-
-```
-kedro run
-```
-
-## How to test your Kedro project
-
-Have a look at the file `src/tests/test_run.py` for instructions on how to write your tests. You can run your tests as follows:
+Configure your PostgreSQL credentials data in `conf/local/credentials.yml' file (need to create a new file) in the following format:
 
 ```
-kedro test
+db_credentials:
+  con: postgresql://(user):(password)@(host):(port)/(dbname)
 ```
 
-To configure the coverage threshold, go to the `.coveragerc` file.
+Also create and add credentials in `conf/local/postgresql.txt' file in the following format: host, dbname, user, password, port in each line.
 
-## Project dependencies
+Configure base_directory of your recording files, file extension, and the number CPUs to use for parallelize processing in `conf/base/parameters.yml`.
 
-To generate or update the dependency requirements for your project:
-
-```
-kedro build-reqs
-```
-
-This will `pip-compile` the contents of `src/requirements.txt` into a new file `src/requirements.lock`. You can see the output of the resolution by opening `src/requirements.lock`.
-
-After this, if you'd like to update your project requirements, please update `src/requirements.txt` and re-run `kedro build-reqs`.
-
-[Further information about project dependencies](https://docs.kedro.org/en/stable/kedro_project_setup/dependencies.html#project-specific-dependencies)
-
-## How to work with Kedro and notebooks
-
-> Note: Using `kedro jupyter` or `kedro ipython` to run your notebook provides these variables in scope: `context`, `catalog`, and `startup_error`.
->
-> Jupyter, JupyterLab, and IPython are already included in the project requirements by default, so once you have run `pip install -r src/requirements.txt` you will not need to take any extra steps before you use them.
-
-### Jupyter
-To use Jupyter notebooks in your Kedro project, you need to install Jupyter:
+List all directories, where recording files are stored, in file `data/01_raw/catalog.csv`. 
+The following commmand will create another file `data/01_raw/catalog_full.csv` and list full paths of all recording files found in the specified directories. Refer to `conf/base/catalog.yml`.
 
 ```
-pip install jupyter
+kedro run -p list_rec_files
 ```
 
-After installing Jupyter, you can start a local notebook server:
+Run parallelized (or single core) processing by running the following command.
 
 ```
-kedro jupyter notebook
+python parallel_run.py
 ```
 
-### JupyterLab
-To use JupyterLab, you need to install it:
+### Interactive data visualization and analysis
+
+To open the CardioMEA Dashboard, run the following command.
 
 ```
-pip install jupyterlab
+kedro run -p dashboard
 ```
 
-You can also start JupyterLab:
-
-```
-kedro jupyter lab
-```
-
-### IPython
-And if you want to run an IPython session:
-
-```
-kedro ipython
-```
-
-### How to convert notebook cells to nodes in a Kedro project
-You can move notebook code over into a Kedro project structure using a mixture of [cell tagging](https://jupyter-notebook.readthedocs.io/en/stable/changelog.html#release-5-0-0) and Kedro CLI commands.
-
-By adding the `node` tag to a cell and running the command below, the cell's source code will be copied over to a Python file within `src/<package_name>/nodes/`:
-
-```
-kedro jupyter convert <filepath_to_my_notebook>
-```
-> *Note:* The name of the Python file matches the name of the original notebook.
-
-Alternatively, you may want to transform all your notebooks in one go. Run the following command to convert all notebook files found in the project root directory and under any of its sub-folders:
-
-```
-kedro jupyter convert --all
-```
-
-### How to ignore notebook output cells in `git`
-To automatically strip out all output cell contents before committing to `git`, you can run `kedro activate-nbstripout`. This will add a hook in `.git/config` which will run `nbstripout` before anything is committed to `git`.
-
-> *Note:* Your output cells will be retained locally.
-
-## Package your Kedro project
-
-[Further information about building project documentation and packaging your project](https://docs.kedro.org/en/stable/tutorial/package_a_project.html)
