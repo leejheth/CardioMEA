@@ -342,7 +342,6 @@ def _FP_wave_features(wave,before_R,T_from,T_to,s_freq):
     b, a = signal.butter(3,[3*2/s_freq,100*2/s_freq],btype='band')
     try:
         T_filtered = signal.filtfilt(b, a, wave)
-        # Tpeak, _ = _peakseek(T_filtered[before_R+T_from:before_R+T_to], minpeakdist=len(wave), minpeakh=30) # find just 1 peak
         Tpeak, _ = find_peaks(T_filtered[before_R+T_from:before_R+T_to], distance=len(wave), prominence=15) # find just 1 peak
         FPD = 1e3*(Tpeak[0]+T_from)/s_freq # in milliseconds
     except Exception:

@@ -9,9 +9,8 @@ from statsmodels.tools.tools import add_constant
 from optimalflow.autoFS import dynaFS_clf
 from plotly.subplots import make_subplots
 from sklearn.inspection import permutation_importance
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import train_test_split
 from autosklearn.classification import AutoSklearnClassifier
-from autosklearn.metrics import f1, accuracy
 import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.express as px
@@ -24,7 +23,7 @@ import webbrowser
 import itertools
 
 def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
-    bel_logo = 'docs/bel_ohne_schrift.jpg'
+    bel_logo = 'data/01_raw/bel_ohne_schrift.jpg'
     logo_base64 = base64.b64encode(open(bel_logo, 'rb').read()).decode('ascii')
     
     app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -81,7 +80,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         id='datatable',
         columns=[{"name": i, "id": i} for i in ['cell_line','compound','file_path','time_processed','note']],
         data=[],
-        page_size=5,    
+        page_size=10,    
         page_current=0, 
         editable=False,
         row_selectable="multi",
@@ -450,11 +449,15 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                         ),
                     ]),
                     dbc.Col([
+                        html.H5("Test size (%)"),
+                        dbc.Input(id='test_size', type="number", min=1, max=50, step=1, value=20),
+                    ]),
+                    dbc.Col([
                         html.H5("Cross validation folds"),
                         dbc.Input(id='cv', type="number", min=2, max=10, step=1, value=5),
                     ]),
                     dbc.Col([
-                        html.H5("Time limit per fold (min)"),
+                        html.H5("Time limit (min)"),
                         dbc.Input(id='time_limit', type="number", min=1, max=30, step=1, value=3),
                     ]),
                     dbc.Col([
@@ -513,12 +516,13 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         [
             Input("run_automl", "n_clicks"),
             Input("impute_input", "value"),
+            Input("test_size", "value"),
             Input("cv", "value"),
             Input("time_limit", "value"),
             Input("perm_repeats", "value"),
         ],
     )
-    def reset_progress_bar(n_clicks, impute, cv, time_limit, perm_repeats):
+    def reset_progress_bar(n_clicks, impute, test_size, cv, time_limit, perm_repeats):
         updated_input = ctx.triggered_id
         if updated_input=='run_automl': # if Run button is pressed
             return 0, False, True
@@ -534,13 +538,14 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
             Input("progress_interval", "n_intervals"),
             Input("progress_interval", "interval"),
             Input("time_limit", "value"),
+            Input("test_size", "value"),
             Input("cv", "value"),
             Input("run_automl", "n_clicks"),
         ],
     )
-    def update_progress_bar(n, interval, time_limit, cv, n_clicks):
+    def update_progress_bar(n, interval, time_limit, test_size, cv, n_clicks):
         if n_clicks:
-            time_limit_ms = time_limit * 60 * 1000 * cv 
+            time_limit_ms = time_limit * 60 * 1000 
             progress = round(100 * n * interval / time_limit_ms)
             return progress, f"{progress} %" if progress >= 5 else "" # add text only after 5% progress 
         else:
@@ -555,6 +560,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         [
             Input("run_automl", "n_clicks"),
             Input("impute_input", "value"),
+            Input("test_size", "value"),
             Input("cv", "value"),
             Input("time_limit", "value"),
             Input("perm_repeats", "value"),
@@ -563,7 +569,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         ],
         State('datatable', 'data'),
     )
-    def automl(n_clicks, impute, cv, time_limit, perm_repeats, features, selected_rows, data):
+    def automl(n_clicks, impute, test_size, cv, time_limit, perm_repeats, features, selected_rows, data):
         updated_input = ctx.triggered_id
         if updated_input=='run_automl': # if Run button is pressed
             selected_data = [data[i] for i in selected_rows]
@@ -577,77 +583,70 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                 # filter only rows that are selected and preserve the selection order
                 df_selected = pd.merge(data_df["time"], cardio_db_FP, how="left", on="time", sort=False)
                 # keep only selected features
-                df_filtered = df_selected[features+['cell_line']]
+                df_selected_filtered = df_selected[features+['cell_line']]
 
                 if impute == 'drop':
                     ## drop NaN entries
-                    y = df_filtered.loc[df_filtered.notna().all(axis=1),'cell_line'].to_numpy()
-                    X = df_filtered.loc[df_filtered.notna().all(axis=1)].drop('cell_line',axis=1,inplace=False).values
+                    y = df_selected_filtered.loc[df_selected_filtered.notna().all(axis=1),'cell_line'].to_numpy()
+                    X = df_selected_filtered.loc[df_selected_filtered.notna().all(axis=1)].drop('cell_line',axis=1,inplace=False).values
                 else:
-                    ## keep NaN entries (will be later imputed by mean values)
-                    X = df_filtered.drop('cell_line',axis=1,inplace=False).values
-                    y = df_filtered['cell_line'].to_numpy()
+                    ## fill NaN entries with mean values
+                    df_selected_filtered.fillna(df_selected_filtered.mean(), inplace=True)
+                    X = df_selected_filtered.drop('cell_line',axis=1,inplace=False).values
+                    y = df_selected_filtered['cell_line'].to_numpy()
 
-                train_scores=[]
-                test_scores=[]
-                feat_imp_train = pd.DataFrame(columns=features)
-                feat_imp_test = pd.DataFrame(columns=features)
-                skf = StratifiedKFold(n_splits=cv)
-                for train_index, test_index in skf.split(X, y):
-                    X_train, X_test = X[train_index], X[test_index]
-                    y_train, y_test = y[train_index], y[test_index]
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y)
 
-                    # run AutoML
-                    automl = AutoSklearnClassifier(
-                        time_left_for_this_task = time_limit * 60,
-                        per_run_time_limit = 30,
-                        # do not create an ensemble of top-performin models to prevent overfitting.
-                        ensemble_kwargs = {'ensemble_size': 1},
-                        initial_configurations_via_metalearning = 0,
-                        # metric = f1,      # default: accuracy
-                        n_jobs = -1,
-                    )
-                    automl.fit(X_train, y_train)
+                automl = AutoSklearnClassifier(
+                    time_left_for_this_task = time_limit * 60,
+                    per_run_time_limit = 30,
+                    resampling_strategy='cv', # autosklearn will automatically use stratified CV.
+                    resampling_strategy_arguments={'folds':cv},
+                    # do not create an ensemble of top-performin models to prevent overfitting.
+                    ensemble_kwargs = {'ensemble_size': 1},
+                    initial_configurations_via_metalearning = 0,
+                    n_jobs = -1,
+                )
+                # One can use models trained during cross-validation directly to predict
+                # for unseen data. For this, all k models trained during k-fold
+                # cross-validation are considered as a single soft-voting ensemble inside
+                # the ensemble constructed with ensemble selection. 
+                # (https://automl.github.io/auto-sklearn/master/examples/40_advanced/example_resampling.html)
+                automl.fit(X_train, y_train) # fit models on individual cross-validation folds.
 
-                    # get performance scores (when 'score' is used, it uses the metric defined in automl)   
-                    train_scores.append(automl.score(X_train, y_train))
-                    test_scores.append(automl.score(X_test, y_test))
-                    # train_scores.append(accuracy(y_train, automl.predict(X_train)))
-                    # test_scores.append(accuracy(y_test, automl.predict(X_test)))
+                train_score = automl.score(X_train, y_train)
+                test_score = automl.score(X_test, y_test)
 
-                    # get feature importances (permutation analysis): accuracy drop when a feature is permuted
-                    r = permutation_importance(automl, X_train, y_train, n_repeats=perm_repeats)
-                    sort_idx = r.importances_mean.argsort()[::-1]
-                    feat_imp_train = pd.concat([feat_imp_train, pd.DataFrame(r.importances[sort_idx].T, columns=features)], ignore_index=True)
+                r = permutation_importance(automl, X_train, y_train, n_repeats=perm_repeats)
+                feat_imp_train = pd.DataFrame(r.importances.T, columns=features)
 
-                    r = permutation_importance(automl, X_test, y_test, n_repeats=perm_repeats)
-                    sort_idx = r.importances_mean.argsort()[::-1]
-                    feat_imp_test = pd.concat([feat_imp_test, pd.DataFrame(r.importances[sort_idx].T, columns=features)], ignore_index=True)
-                
+                r = permutation_importance(automl, X_test, y_test, n_repeats=perm_repeats)
+                feat_imp_test = pd.DataFrame(r.importances.T, columns=features)
+
                 output = html.Div([
                     html.H5("AutoML scores"),
                     html.Ul([
-                        html.Li(f"Training data score: {np.mean(train_scores):.3f} +/- {np.std(train_scores):.3f}"),
-                        html.Li(f"Test data score: {np.mean(test_scores):.3f} +/- {np.std(test_scores):.3f}"),
+                        html.Li(f"Training data score: {train_score:.3f}"),
+                        html.Li(f"Test data score: {test_score:.3f}"),
                     ]),
                     html.Br(),
-                    html.H5("Best ML model"),
-                    html.P(str(list(automl.show_models().values())[0]['sklearn_classifier'])),
+                    html.H5("Best ML model(s)"),
+                    html.P(str([e['sklearn_classifier'] for e in list(automl.show_models().values())[0]['estimators']])),
                 ])
 
                 fig1 = go.Figure()
                 feat_imp_train.loc['mean'] = feat_imp_train.mean()
-                feat_imp_train.sort_values(by='mean', axis=1, ascending=False, inplace=True)
-                for f in feat_imp_train.columns:
-                    fig1.add_trace(go.Box(y=feat_imp_train[f], name=f, showlegend=False))
+                feat_imp_train_sorted = feat_imp_train.sort_values(by='mean', axis=1, ascending=False).drop('mean',axis=0)
+                for f in feat_imp_train_sorted.columns:
+                    fig1.add_trace(go.Box(y=feat_imp_train_sorted[f], name=f, showlegend=False))
                 fig1.update_layout(xaxis_title="Features", yaxis_title="Feature importance")
                 fig1.update_xaxes(tickangle=45)
                 
                 fig2 = go.Figure()
                 feat_imp_test.loc['mean'] = feat_imp_test.mean()
-                feat_imp_test.sort_values(by='mean', axis=1, ascending=False, inplace=True)
-                for f in feat_imp_test.columns:
-                    fig2.add_trace(go.Box(y=feat_imp_test[f], name=f, showlegend=False))                                
+                feat_imp_test_sorted = feat_imp_test.sort_values(by='mean', axis=1, ascending=False).drop('mean',axis=0)
+                for f in feat_imp_test_sorted.columns:
+                    fig2.add_trace(go.Box(y=feat_imp_test_sorted[f], name=f, showlegend=False))                                
                 fig2.update_layout(xaxis_title="Features", yaxis_title="Feature importance")
                 fig2.update_xaxes(tickangle=45)
 

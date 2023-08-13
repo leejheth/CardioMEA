@@ -24,6 +24,9 @@ notebooks/**
 # keep an example csv file for input
 !data/01_raw/catalog.csv
 
+# keep BEL logo
+!data/01_raw/bel_ohne_schrift.jpg
+
 ##########################
 # Common files
 
