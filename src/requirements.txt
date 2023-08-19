@@ -62,8 +62,6 @@ cachetools==5.3.0
     # via
     #   google-auth
     #   kedro
-category-encoders==2.6.1
-    # via optimalflow
 certifi==2022.12.7
     # via requests
 cffi==1.15.1
@@ -156,9 +154,7 @@ fastjsonschema==2.16.3
 flake8==4.0.1
     # via -r src/requirements.in
 flask==2.3.2
-    # via
-    #   dash
-    #   optimalflow
+    # via dash
 fonttools==4.39.3
     # via matplotlib
 fsspec==2023.3.0
@@ -297,7 +293,6 @@ jmespath==0.10.0
 joblib==1.2.0
     # via
     #   auto-sklearn
-    #   optimalflow
     #   scikit-learn
     #   smac
 json5==0.9.11
@@ -379,12 +374,10 @@ markupsafe==2.1.2
     #   jinja2
     #   nbconvert
     #   werkzeug
-    #   wtforms
 matplotlib==3.7.1
     # via
     #   hrv-analysis
     #   ipympl
-    #   optimalflow
 matplotlib-inline==0.1.6
     # via
     #   ipykernel
@@ -450,7 +443,6 @@ numpy==1.24.2
     #   astropy
     #   auto-sklearn
     #   biopython
-    #   category-encoders
     #   configspace
     #   contourpy
     #   db-dtypes
@@ -480,8 +472,6 @@ omegaconf==2.3.0
     # via kedro
 openpyxl==3.1.2
     # via kedro
-optimalflow==0.1.11
-    # via -r src/requirements.in
 orjson==3.8.10
     # via kedro-viz
 packaging==23.0
@@ -508,14 +498,12 @@ packaging==23.0
 pandas==1.5.3
     # via
     #   auto-sklearn
-    #   category-encoders
     #   dash-bio
     #   db-dtypes
     #   geoparse
     #   hrv-analysis
     #   kedro
     #   kedro-viz
-    #   optimalflow
     #   pandas-gbq
     #   statsmodels
 pandas-gbq==0.17.9
@@ -531,9 +519,7 @@ partd==1.4.0
 pathspec==0.11.1
     # via black
 patsy==0.5.3
-    # via
-    #   category-encoders
-    #   statsmodels
+    # via statsmodels
 periodictable==1.6.1
     # via dash-bio
 pexpect==4.8.0
@@ -557,7 +543,6 @@ plotly==5.14.1
     # via
     #   dash
     #   kedro-viz
-    #   optimalflow
 pluggy==1.0.0
     # via
     #   kedro
@@ -716,20 +701,16 @@ scikit-learn==0.24.2
     # via
     #   -r src/requirements.in
     #   auto-sklearn
-    #   category-encoders
     #   dash-bio
-    #   optimalflow
     #   smac
 scipy==1.10.1
     # via
     #   -r src/requirements.in
     #   auto-sklearn
-    #   category-encoders
     #   configspace
     #   dash-bio
     #   hrv-analysis
     #   lmfit
-    #   optimalflow
     #   scikit-learn
     #   smac
     #   statsmodels
@@ -767,10 +748,7 @@ stack-data==0.6.2
 starlette==0.22.0
     # via fastapi
 statsmodels==0.14.0
-    # via
-    #   -r src/requirements.in
-    #   category-encoders
-    #   optimalflow
+    # via -r src/requirements.in
 strawberry-graphql==0.171.1
     # via kedro-viz
 sympy==1.11.1
@@ -875,15 +853,11 @@ websocket-client==1.5.1
 websockets==11.0.1
     # via uvicorn
 werkzeug==2.3.3
-    # via
-    #   flask
-    #   optimalflow
+    # via flask
 wheel==0.40.0
     # via pip-tools
 widgetsnbextension==4.0.7
     # via ipywidgets
-wtforms==3.0.1
-    # via optimalflow
 zict==3.0.0
     # via distributed
 zipp==3.15.0

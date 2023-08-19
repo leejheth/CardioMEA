@@ -1,13 +1,13 @@
 raw_data:
-  base_directory: '/mnt/z/recordings/Mea1k/leejih/'
+  base_directory: '/cluster/scratch/leejih/'
   file_name_pattern: ''
   file_extension: '.h5'
 
-nCPUs: 20
+nCPUs: 15
 
 file_index: 0
 
 tablename: 
-  FP: 'fp_features'
+  FP: 'fp_features_new'
   AP: 'ap_features'
 

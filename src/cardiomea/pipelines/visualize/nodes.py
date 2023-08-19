@@ -6,7 +6,7 @@ from dash import Dash, dcc, dash_table, html, Output, Input, State, ctx
 from dash.exceptions import PreventUpdate
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.tools.tools import add_constant
-from optimalflow.autoFS import dynaFS_clf
+# from optimalflow.autoFS import dynaFS_clf
 from plotly.subplots import make_subplots
 from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
@@ -28,7 +28,6 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     
     app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-    ##### Extracellular recordings #####
     cell_lines = cardio_db_FP["cell_line"].unique()
     cardio_db_FP["file_path"] = cardio_db_FP["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
     col_simple = ['cell_line','compound','file_path','time','note']
@@ -359,79 +358,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
 
         return fig1, clustergram
         
-    # automated feature selection using Optimal Flow
-    auto_feat_selection = dbc.Card([
-        html.Div([
-            html.H4('Automated feature selection'),
-            dbc.Row([
-                dbc.Col([
-                    html.H5('How many features to select?'),
-                    dcc.Slider(
-                        id='slider_feat_selection',
-                        min=2,
-                        max=len(feature_columns),
-                        step=1,
-                        value=2,
-                    ),
-                ]),
-                dbc.Col(html.Div(dbc.Button("Run", id="run_optflow", color="primary", n_clicks=0), className="d-grid col-6 mx-auto"), width=2),
-                dbc.Col([
-                    html.H5('Best features calculated by Optimal Flow'),
-                    html.Div(id='best_features'),
-                ], width=3),
-            ]),
-        ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px', 'margin-bottom': '10px'}),
-    ])
-
-    @app.callback(
-        Output('slider_feat_selection','max'),
-        Input('checklist_features','value'),
-    )
-    def set_slider_range(features):
-        if len(features)<2:
-            return 2
-        else:
-            return len(features) 
     
-    @app.callback(
-        Output('best_features','children'),
-        [
-            Input('slider_feat_selection','value'),
-            Input('run_optflow','n_clicks'),
-            Input('checklist_features','value'),
-            Input('datatable', 'selected_rows'),
-        ],
-        State('datatable', 'data')
-    )
-    def auto_feature_selection(n_desired, n_clicks, features, selected_rows, data):
-        updated_input = ctx.triggered_id
-        if updated_input=='run_optflow': # if Run button is pressed
-            if len(features)<2 or len(selected_rows)<2:
-                return 'Select more features and/or more data rows.'
-            selected_data = [data[i] for i in selected_rows]
-            # convert list of dict to dataframe
-            data_df = pd.DataFrame(selected_data)
-            data_df["time"] = pd.to_datetime(data_df["time"])
-            # filter only rows that are selected and preserve the selection order
-            df_selected = pd.merge(data_df["time"], cardio_db_FP, how="left", on="time", sort=False)
-            # keep only selected features
-            df_filtered = df_selected[features+['cell_line']]
-
-            # define dataset
-            X = df_filtered.drop('cell_line',axis=1,inplace=False)
-            # remove rows which contain NaN
-            y = df_filtered.loc[X.notna().all(axis=1),'cell_line']
-            X = X.loc[X.notna().all(axis=1)]
-
-            clf_fs = dynaFS_clf(fs_num=n_desired, cv=3, input_from_file=True)
-            feat_list = clf_fs.fit(X,y)
-
-            return html.Div([
-                html.Ul([html.Li(f) for f in feat_list[1]])
-            ])
-        else:
-            return 'Click Run'
-
     autoML = html.Div([
         dbc.Card([
             html.Div([
@@ -957,8 +884,8 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                                         ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px'}),
                                     ),
                                     html.Br(),
-                                    auto_feat_selection,
-                                    html.Br(),
+                                    # auto_feat_selection,
+                                    # html.Br(),
                                     autoML,
                                 ], style={'margin-left': '15px', 'margin-right': '15px', 'margin-top': '10px'}),
                             ], label="Feature analysis", activeTabClassName="fw-bold", tab_id="tab1-3"),

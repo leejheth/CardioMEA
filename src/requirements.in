@@ -18,7 +18,6 @@ kedro-viz
 lmfit
 nbstripout~=0.4
 numpy
-optimalflow
 pip-tools<7.0
 psycopg2-binary
 pytest-cov~=3.0

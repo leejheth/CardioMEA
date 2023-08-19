@@ -14,7 +14,7 @@ data_catalog_full:
 
 cardio_db_FP:
   type: pandas.SQLQueryDataSet
-  sql: "SELECT * FROM fp_features"
+  sql: "SELECT * FROM fp_features_new"
   credentials: db_credentials
 
 cardio_db_AP:

@@ -330,11 +330,11 @@ def _FP_wave_features(wave,before_R,T_from,T_to,s_freq):
     except Exception:
         R_amplitude = np.nan
     
-    # get an estimate of R spike width (duration of deviation from baseline)
-    b, a = signal.butter(3,[100*2/s_freq,2000*2/s_freq],btype='band')
+    # get an estimate of R spike width (time duration of R peak-to-peak)
     try:
-        R_filtered = signal.filtfilt(b, a, wave)
-        R_width = 1e3*(np.where(abs(R_filtered)>30)[0][-1]-np.where(abs(R_filtered)>30)[0][0])/s_freq # in milliseconds
+        R_width = 1e3*(np.argmin(wave)-before_R)/s_freq # in milliseconds
+        if R_width>10 or R_width<=0: # if calculate R width is >10 ms or <=0 ms, drop the data.
+            R_width = np.nan
     except Exception:
         R_width = np.nan
 
