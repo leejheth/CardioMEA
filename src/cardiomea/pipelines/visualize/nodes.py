@@ -9,8 +9,9 @@ from statsmodels.tools.tools import add_constant
 # from optimalflow.autoFS import dynaFS_clf
 from plotly.subplots import make_subplots
 from sklearn.inspection import permutation_importance
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from autosklearn.classification import AutoSklearnClassifier
+from autosklearn.metrics import f1, accuracy
 import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.express as px
@@ -28,6 +29,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     
     app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
+    ##### Extracellular recordings #####
     cell_lines = cardio_db_FP["cell_line"].unique()
     cardio_db_FP["file_path"] = cardio_db_FP["file_path_full"].apply(lambda x: x.removeprefix(base_directory))
     col_simple = ['cell_line','compound','file_path','time','note']
@@ -142,7 +144,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     )
     def filelist_graphs_table(selected_rows, data):
         fig = make_subplots(
-            rows=2, cols=2, subplot_titles=("R amplitude", "R width", "FPD", "Conduction speed"), horizontal_spacing=0.1, vertical_spacing=0.1
+            rows=2, cols=2, subplot_titles=("R-wave spike amplitude", "R-wave spike width", "FPD", "Conduction speed"), horizontal_spacing=0.1, vertical_spacing=0.1
         )
         if not selected_rows:
             fig.add_trace(go.Scatter(), row=1, col=1)
@@ -343,7 +345,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
             data=df_norm.values.T,
             row_labels=df_norm.columns.to_list(),
             hidden_labels='column',
-            width=1300,
+            width=1350,
             height=500,
             tick_font={'size': 13},
             cluster='row',
@@ -357,8 +359,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         )
 
         return fig1, clustergram
-        
-    
+
     autoML = html.Div([
         dbc.Card([
             html.Div([
@@ -472,7 +473,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     )
     def update_progress_bar(n, interval, time_limit, test_size, cv, n_clicks):
         if n_clicks:
-            time_limit_ms = time_limit * 60 * 1000 
+            time_limit_ms = time_limit * 60 * 1000 * 1.1 # add 10% buffer
             progress = round(100 * n * interval / time_limit_ms)
             return progress, f"{progress} %" if progress >= 5 else "" # add text only after 5% progress 
         else:
@@ -534,11 +535,11 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                     initial_configurations_via_metalearning = 0,
                     n_jobs = -1,
                 )
-                # One can use models trained during cross-validation directly to predict
+                # "One can use models trained during cross-validation directly to predict
                 # for unseen data. For this, all k models trained during k-fold
                 # cross-validation are considered as a single soft-voting ensemble inside
-                # the ensemble constructed with ensemble selection. 
-                # (https://automl.github.io/auto-sklearn/master/examples/40_advanced/example_resampling.html)
+                # the ensemble constructed with ensemble selection." 
+                # Reference: https://automl.github.io/auto-sklearn/master/examples/40_advanced/example_resampling.html
                 automl.fit(X_train, y_train) # fit models on individual cross-validation folds.
 
                 train_score = automl.score(X_train, y_train)
@@ -558,7 +559,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                     ]),
                     html.Br(),
                     html.H5("Best ML model(s)"),
-                    html.P(str([e['sklearn_classifier'] for e in list(automl.show_models().values())[0]['estimators']])),
+                    html.P(', '.join(list(set([str(e['sklearn_classifier']) for e in list(automl.show_models().values())[0]['estimators']])))) # display only a unique list of models
                 ])
 
                 fig1 = go.Figure()
@@ -877,15 +878,13 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                                     html.Br(),
                                     dbc.Card(
                                         html.Div([
-                                            html.H4('Feature dependency graphs'),
+                                            html.H4('Feature interdependency graphs'),
                                             dcc.Graph(id='feat_dependency_graphs'),
                                             html.H5('Similarity'),
                                             dcc.Graph(id='dendrogram'),
                                         ], style={'margin-left': '10px', 'margin-right': '10px', 'margin-top': '5px'}),
                                     ),
                                     html.Br(),
-                                    # auto_feat_selection,
-                                    # html.Br(),
                                     autoML,
                                 ], style={'margin-left': '15px', 'margin-right': '15px', 'margin-top': '10px'}),
                             ], label="Feature analysis", activeTabClassName="fw-bold", tab_id="tab1-3"),
