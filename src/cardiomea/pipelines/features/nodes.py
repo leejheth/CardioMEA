@@ -18,6 +18,7 @@ from scipy import signal
 from scipy.signal import find_peaks
 from lmfit import Model, Parameters
 from psycopg2.extensions import register_adapter, AsIs
+from sqlalchemy import create_engine
 import sympy as sym
 
 
@@ -838,23 +839,16 @@ def merge_FP_AP_features(
     register_adapter(np.float16, AsIs)
 
     # connect to sql server
-    conn = None
     try:
         # connect to the PostgreSQL server
         print('Connecting to the PostgreSQL database...')
-        conn = psycopg2.connect(
-            host=sql_credentials[0],
-            dbname=sql_credentials[1],
-            user=sql_credentials[2],
-            password=sql_credentials[3],
-            port=sql_credentials[4]
-        )
+        engine = create_engine(f'postgresql://{sql_credentials[2]}:sql_credentials[3]@{sql_credentials[0]}:{sql_credentials[4]}/{sql_credentials[1]}', poolclass=NullPool)
+        conn = engine.connect()
+        df_merged.to_sql(tablename, engine, if_exists='append', index=False)
+        conn.close()
+        print('Database connection closed.')
 
-        df_merged.to_sql(tablename, conn, if_exists='append', index=False)
-
-    except (Exception, psycopg2.DatabaseError) as error:
+    except Exception as error:
         print(error)
-    finally:
-        if conn is not None:
-            conn.close()
-            print('Database connection closed.')
+    
+            
