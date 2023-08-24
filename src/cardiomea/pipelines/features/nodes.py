@@ -809,14 +809,14 @@ def parse_rec_file_info_FP_AP(data_catalog, base_directory, index):
 def merge_FP_AP_features(
     rec_info, file_path_full_FP, file_path_full_AP, FP_electrodes, R_amplitudes, R_widths, FPDs, AP_amplitudes, depolarization_time, APD50, APD90, AP_electrodes, tablename
 ):
-    df_FP = pd.DataFrame(columns=['r_amplitude','r_width','fpd','FP_electrodes','file_path','file_path_full_FP'])
+    df_FP = pd.DataFrame(columns=['r_amplitude','r_width','fpd','fp_electrodes','file_path_full_fp'])
     df_FP['r_amplitude'] = R_amplitudes
     df_FP['r_width'] = R_widths
     df_FP['fpd'] = FPDs
     df_FP['fp_electrodes'] = FP_electrodes
     df_FP['file_path_full_fp'] = file_path_full_FP
 
-    df_AP = pd.DataFrame(columns=['ap_amplitude','depolarization_time','apd50','apd90','AP_electrodes','file_path','file_path_full_AP'])
+    df_AP = pd.DataFrame(columns=['ap_amplitude','depolarization_time','apd50','apd90','ap_electrodes','file_path_full_ap'])
     df_AP['ap_amplitude'] = AP_amplitudes
     df_AP['depolarization_time'] = depolarization_time
     df_AP['apd50'] = APD50
@@ -825,7 +825,7 @@ def merge_FP_AP_features(
     df_AP['file_path_full_ap'] = file_path_full_AP
 
     # merge FP and AP dataframes on electrode IDs
-    df_merged = pd.merge(df_FP, df_AP, left_on='FP_electrodes', right_on='AP_electrodes', how='inner')
+    df_merged = pd.merge(df_FP, df_AP, left_on='fp_electrodes', right_on='ap_electrodes', how='inner')
 
     df_merged['file_path'] = rec_info['file_path']
     df_merged['cell_line'] = rec_info['cell_line']
