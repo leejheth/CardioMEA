@@ -1,13 +1,14 @@
 raw_data:
-  base_directory: '/cluster/scratch/leejih/'
+  # base_directory: '/cluster/scratch/leejih/'
+  base_directory: '/net/bs-filesvr02/export/group/hierlemann/recordings/Mea1k/leejih/'
   file_name_pattern: ''
   file_extension: '.h5'
 
-nCPUs: 15
+nCPUs: 20
 
 file_index: 0
 
 tablename: 
   FP: 'fp_features'
   AP: 'ap_features'
-
+  FP_AP: 'fp_ap_features'

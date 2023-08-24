@@ -16,7 +16,7 @@ nCPUs = content['n_CPUs']
 def run_pipeline(index):    
     try: 
         session = KedroSession.create(extra_params={"file_index": index})
-        session.run(pipeline_name="extra_pipeline", runner=SequentialRunner()) # for intracellular recordings, use pipeline_name="intra_pipeline" instead.
+        session.run(pipeline_name="FP_AP_pipeline", runner=SequentialRunner()) # for intracellular recordings, use pipeline_name="intra_pipeline" instead.
     except Exception:
         print(f"Error while running the pipeline with file index {index}. Skipped.")
 

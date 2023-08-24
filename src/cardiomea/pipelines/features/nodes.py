@@ -612,8 +612,9 @@ def _upload_to_sql_server(tablename, sql_columns, values):
             conn.close()
             print('Database connection closed.')
 
-def get_AP_waves(signals, params_AP_wave):
+def get_AP_waves(signals, params_AP_wave, electrodes_info):
     AP_waves=[]
+    electrode_ids_list=[]
     for signal in signals:
         # find the end point of the clipped window of the signal
         max_clipped_ind = np.flatnonzero(signal == np.amax(signal)).tolist()
@@ -646,17 +647,19 @@ def get_AP_waves(signals, params_AP_wave):
         
         # average the waves
         AP_waves.append([sum(col) / len(col) for col in zip(*waves)])
+        electrode_ids_list.append(electrodes_info['electrode_ids'][signals.index(signal)])
         
     # Calculate electroporation yield
     electroporation_yield = 100*len(AP_waves)/signals.shape[0]
 
-    return AP_waves, electroporation_yield
+    return AP_waves, electroporation_yield, electrode_ids_list
 
-def get_AP_wave_features(AP_waves,after_upstroke,s_freq):
+def get_AP_wave_features(AP_waves,electrode_ids_list,after_upstroke,s_freq):
     t_deps=[]
     amps=[]
     APD50s=[]
     APD90s=[]
+    electrode_ids_list_updated=[]
     for AP_wave in AP_waves:
         # find peak (maximum of the AP wave)    
         peak_x = np.argmax(AP_wave[:after_upstroke])
@@ -704,8 +707,9 @@ def get_AP_wave_features(AP_waves,after_upstroke,s_freq):
             amps.append(amp)
             APD50s.append(APD50)
             APD90s.append(APD90)
+            electrode_ids_list_updated.append(electrode_ids_list[AP_waves.index(AP_wave)])
 
-    return amps, t_deps, APD50s, APD90s
+    return amps, t_deps, APD50s, APD90s, electrode_ids_list_updated
 
 def upload_AP_features_to_sql_server(rec_info,file_path_full,gain,rec_duration,rec_proc_duration,electroporation_yield,electrodes_info,AP_amplitudes,depolarization_time,APD50,APD90,tablename):
     """Upload extracted AP feature data to SQL server.
@@ -779,3 +783,78 @@ def upload_AP_features_to_sql_server(rec_info,file_path_full,gain,rec_duration,r
 
     # upload data to SQL server
     _upload_to_sql_server(tablename, sql_columns, values)
+
+
+def parse_rec_file_info_FP_AP(data_catalog, base_directory, index):    
+    cell_line = data_catalog.loc[index,'cell_line']
+    compound = data_catalog.loc[index,'compound']
+    file_path = data_catalog.loc[index,'file_path']
+    note = data_catalog.loc[index,'note']
+    file_path_full_FP = base_directory+file_path+"/"+"FP_1.raw.h5"
+    file_path_full_AP = base_directory+file_path+"/"+"stim_1.raw.h5"
+
+    print(f"Processing recording file: {file_path} ...")
+
+    rec_info = dict([
+        ("cell_line", cell_line),
+        ("compound", compound),
+        ("file_path", file_path),
+        ("note", note),
+    ])
+
+    return rec_info, file_path_full_FP, file_path_full_AP
+
+def merge_FP_AP_features(
+    rec_info, file_path_full_FP, file_path_full_AP, FP_electrodes, R_amplitudes, R_widths, FPDs, AP_amplitudes, depolarization_time, APD50, APD90, AP_electrodes, tablename
+):
+    df_FP = pd.DataFrame(columns=['r_amplitude','r_width','fpd','FP_electrodes','file_path','file_path_full_FP'])
+    df_FP['r_amplitude'] = R_amplitudes.split()
+    df_FP['r_width'] = R_widths.split()
+    df_FP['fpd'] = FPDs.split()
+    df_FP['fp_electrodes'] = FP_electrodes
+    df_FP['file_path_full_fp'] = file_path_full_FP
+
+    df_AP = pd.DataFrame(columns=['ap_amplitude','depolarization_time','apd50','apd90','AP_electrodes','file_path','file_path_full_AP'])
+    df_AP['ap_amplitude'] = AP_amplitudes
+    df_AP['depolarization_time'] = depolarization_time
+    df_AP['apd50'] = APD50
+    df_AP['apd90'] = APD90
+    df_AP['ap_electrodes'] = AP_electrodes
+    df_AP['file_path_full_ap'] = file_path_full_AP
+
+    # merge FP and AP dataframes on electrode IDs
+    df_merged = pd.merge(df_FP, df_AP, left_on='FP_electrodes', right_on='AP_electrodes', how='inner')
+
+    df_merged['file_path'] = rec_info['file_path']
+    df_merged['cell_line'] = rec_info['cell_line']
+    df_merged['compound'] = rec_info['compound']
+    df_merged['note'] = rec_info['note']
+    df_merged['time'] = datetime.datetime.now()
+
+    with open('conf/local/postgresql.txt', 'r') as f:
+        sql_credentials = f.read().splitlines()
+    
+    register_adapter(np.int64, AsIs)
+    register_adapter(np.float16, AsIs)
+
+    # connect to sql server
+    conn = None
+    try:
+        # connect to the PostgreSQL server
+        print('Connecting to the PostgreSQL database...')
+        conn = psycopg2.connect(
+            host=sql_credentials[0],
+            dbname=sql_credentials[1],
+            user=sql_credentials[2],
+            password=sql_credentials[3],
+            port=sql_credentials[4]
+        )
+
+        df_merged.to_sql(tablename, conn, if_exists='append', index=False)
+
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+            print('Database connection closed.')

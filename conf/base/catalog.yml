@@ -1,6 +1,6 @@
 data_catalog:
   type: pandas.CSVDataSet
-  filepath: data/01_raw/catalog.csv
+  filepath: data/01_raw/catalog_FP_AP.csv
   load_args:
     sep: ';'
     
