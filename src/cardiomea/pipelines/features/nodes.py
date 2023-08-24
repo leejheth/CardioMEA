@@ -843,7 +843,7 @@ def merge_FP_AP_features(
     try:
         # connect to the PostgreSQL server
         print('Connecting to the PostgreSQL database...')
-        engine = create_engine(f'postgresql://{sql_credentials[2]}:sql_credentials[3]@{sql_credentials[0]}:{sql_credentials[4]}/{sql_credentials[1]}', poolclass=NullPool)
+        engine = create_engine(f'postgresql://{sql_credentials[2]}:{sql_credentials[3]}@{sql_credentials[0]}:{sql_credentials[4]}/{sql_credentials[1]}', poolclass=NullPool)
         conn = engine.connect()
         df_merged.to_sql(tablename, engine, if_exists='append', index=False)
         conn.close()
