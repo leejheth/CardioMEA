@@ -808,9 +808,9 @@ def merge_FP_AP_features(
     rec_info, file_path_full_FP, file_path_full_AP, FP_electrodes, R_amplitudes, R_widths, FPDs, AP_amplitudes, depolarization_time, APD50, APD90, AP_electrodes, tablename
 ):
     df_FP = pd.DataFrame(columns=['r_amplitude','r_width','fpd','FP_electrodes','file_path','file_path_full_FP'])
-    df_FP['r_amplitude'] = R_amplitudes.split()
-    df_FP['r_width'] = R_widths.split()
-    df_FP['fpd'] = FPDs.split()
+    df_FP['r_amplitude'] = R_amplitudes
+    df_FP['r_width'] = R_widths
+    df_FP['fpd'] = FPDs
     df_FP['fp_electrodes'] = FP_electrodes
     df_FP['file_path_full_fp'] = file_path_full_FP
 
