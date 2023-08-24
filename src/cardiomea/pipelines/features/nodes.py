@@ -19,6 +19,7 @@ from scipy.signal import find_peaks
 from lmfit import Model, Parameters
 from psycopg2.extensions import register_adapter, AsIs
 from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
 import sympy as sym
 
 
