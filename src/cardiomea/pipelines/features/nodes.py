@@ -615,7 +615,7 @@ def _upload_to_sql_server(tablename, sql_columns, values):
 def get_AP_waves(signals, params_AP_wave, electrodes_info):
     AP_waves=[]
     electrode_ids_list=[]
-    for signal in signals:
+    for cnt, signal in enumerate(signals):
         # find the end point of the clipped window of the signal
         max_clipped_ind = np.flatnonzero(signal == np.amax(signal)).tolist()
         min_clipped_ind = np.flatnonzero(signal == np.amin(signal)).tolist()
@@ -647,7 +647,7 @@ def get_AP_waves(signals, params_AP_wave, electrodes_info):
         
         # average the waves
         AP_waves.append([sum(col) / len(col) for col in zip(*waves)])
-        electrode_ids_list.append(electrodes_info['electrode_ids'][signals.index(signal)])
+        electrode_ids_list.append(electrodes_info['electrode_ids'][cnt])
         
     # Calculate electroporation yield
     electroporation_yield = 100*len(AP_waves)/signals.shape[0]
