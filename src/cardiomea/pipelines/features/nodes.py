@@ -222,34 +222,9 @@ def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,s_freq):
 def _R_timestamps(signal_single,mult_factor,min_peak_dist):
     """Identify R peaks in a single channel."""
     thr = mult_factor*np.std(signal_single)
-    # r_locs, _ = _peakseek(signal_single, minpeakdist=min_peak_dist, minpeakh=thr)
     r_locs, _ = find_peaks(signal_single, distance=min_peak_dist, prominence=thr)
 
     return len(r_locs), r_locs
-
-
-def _peakseek(data, minpeakdist, minpeakh):
-    """Find peaks in a 1D array."""
-    locs = np.where((data[1:-1] >= data[0:-2]) & (data[1:-1] >= data[2:]))[0] + 1
-    
-    if minpeakh:
-        locs = locs[data[locs] > minpeakh]
-
-    if minpeakdist > 1:
-        while 1:
-            multi = (locs[1:] - locs[0:-1]) < minpeakdist
-            if not any(multi):
-                break
-            pks = data[locs]
-            all_pks = np.array([[pks[i] for i in range(len(multi)) if multi[i]], [pks[i+1] for i in range(len(multi)) if multi[i]]])
-            min_ind = np.argmin(all_pks,axis=0)
-
-            multi_x = np.where(multi)[0]
-            multi_xx = list(multi_x[min_ind==0]) + list(multi_x[min_ind==1] + 1)
-            locs = np.delete(list(locs), multi_xx)
-    pks = data[locs]
-    
-    return list(locs), pks
   
 
 def get_active_area(electrodes_info, sync_channelIDs):
@@ -572,6 +547,7 @@ def upload_to_sql_server(rec_info,file_path_full,gain,rec_duration,rec_proc_dura
 
 
 def _upload_to_sql_server(tablename, sql_columns, values):
+    """Make a connection to the SQL server and upload data."""
     # Get PostgreSQL database information and credentials data from text file.
     # (.txt file format: host, dbname, user, password, port in each line)
     with open('conf/local/postgresql.txt', 'r') as f:
@@ -615,6 +591,16 @@ def _upload_to_sql_server(tablename, sql_columns, values):
             print('Database connection closed.')
 
 def get_AP_waves(signals, params_AP_wave, electrodes_info):
+    """Extract AP waves from the signals.
+
+    Args:
+        signals (numpy.ndarray): Extracted signals.
+        params_AP_wave (dict): Dictionary containing parameters for extracting AP waves.
+        electrodes_info (dict): Dictionary containing the channel information (electrode ID, X and Y locations, number of electrodes used for recording).
+    
+    Returns:
+        AP_waves (list): List of AP waves.
+    """
     AP_waves=[]
     electrode_ids_list=[]
     for cnt, signal in enumerate(signals):
@@ -657,6 +643,21 @@ def get_AP_waves(signals, params_AP_wave, electrodes_info):
     return AP_waves, electroporation_yield, electrode_ids_list
 
 def get_AP_wave_features(AP_waves,electrode_ids_list,after_upstroke,s_freq):
+    """Extract features from AP waves.
+
+    Args:
+        AP_waves (list): List of AP waves.
+        electrode_ids_list (list): List of electrode IDs.
+        after_upstroke (int): Number of frames after the upstroke.
+        s_freq (int): Sampling frequency of the signals.
+
+    Returns:
+        amps (list): List of peak-to-peak amplitudes of AP waves (in millivolts).
+        t_deps (list): List of depolarization times (in milliseconds).
+        APD50s (list): List of action potential duration at 50% repolarization (in milliseconds).
+        APD90s (list): List of action potential duration at 90% repolarization (in milliseconds).
+        electrode_ids_list_updated (list): Updated list of electrode IDs.   
+    """
     t_deps=[]
     amps=[]
     APD50s=[]
@@ -788,6 +789,18 @@ def upload_AP_features_to_sql_server(rec_info,file_path_full,gain,rec_duration,r
 
 
 def parse_rec_file_info_FP_AP(data_catalog, base_directory, index):    
+    """Parse recording file information from the data catalog.
+    
+    Args:
+        data_catalog (pandas.DataFrame): Data catalog containing directory and other (names of cell lines, compound, note) information of recording files.
+        base_directory (str): Base directory where the recording files are stored.
+        index (int): Index of the recording file in the data catalog.
+    
+    Returns:
+        rec_info (dict): Recording information.
+        file_path_full_FP (str): Full path to the FP recording file.
+        file_path_full_AP (str): Full path to the AP recording file.
+    """
     cell_line = data_catalog.loc[index,'cell_line']
     compound = data_catalog.loc[index,'compound']
     file_path = data_catalog.loc[index,'file_path']
@@ -809,6 +822,23 @@ def parse_rec_file_info_FP_AP(data_catalog, base_directory, index):
 def merge_FP_AP_features(
     rec_info, file_path_full_FP, file_path_full_AP, FP_electrodes_info, R_amplitudes, R_widths, FPDs, AP_amplitudes, depolarization_time, APD50, APD90, AP_electrodes, tablename
 ):
+    """Merge FP and AP features and upload to SQL server.
+    
+    Args:
+        rec_info (dict): Recording information.
+        file_path_full_FP (str): Full path to the FP recording file.
+        file_path_full_AP (str): Full path to the AP recording file.
+        FP_electrodes_info (dict): Dictionary containing the channel information (electrode ID, X and Y locations, number of electrodes used for recording) of a FP recording file.
+        R_amplitudes (list): List of R peak amplitudes (in microvolts).
+        R_widths (list): List of R peak widths (in milliseconds).
+        FPDs (list): List of FPDs (field potential durations) (in milliseconds).
+        AP_amplitudes (list): List of AP amplitudes.
+        depolarization_time (list): List of depolarization time.
+        APD50 (list): List of action potential durations (APDs) at 50% repolarization.
+        APD90 (list): List of action potential durations (APDs) at 90% repolarization.
+        AP_electrodes (list): List of electrode IDs where APs were detected from a AP recording file.
+        tablename (str): Name of the SQL table where the data is uploaded.
+    """
     df_FP = pd.DataFrame(columns=['r_amplitude','r_width','fpd','fp_electrodes','file_path_full_fp'])
     df_FP['r_amplitude'] = R_amplitudes
     df_FP['r_width'] = R_widths

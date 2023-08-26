@@ -24,6 +24,14 @@ import webbrowser
 import itertools
 
 def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
+    """This node is used to create a dashboard for the data.
+    
+    Args:
+        cardio_db_FP (pandas.DataFrame): Dataframe containing the data from the FP recordings (FP SQL table).
+        cardio_db_AP (pandas.DataFrame): Dataframe containing the data from the AP recordings (AP SQL table).
+        port (int): Port number to use the dashboard on a web browser.
+        base_directory (str): Path to the base directory of the data (to simplify the full file path display in the Data Panel).
+    """
     bel_logo = 'data/01_raw/bel_ohne_schrift.jpg'
     logo_base64 = base64.b64encode(open(bel_logo, 'rb').read()).decode('ascii')
     
@@ -938,5 +946,3 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
     webbrowser.open_new(f"http://127.0.0.1:{port}/")
     
     app.run(debug=False, port=port)
-
-    

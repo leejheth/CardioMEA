@@ -7,7 +7,7 @@
 signals:
   s_freq: 20000
   start_frame: 0
-  length: 1800000
+  length: 1200000
   factor: 5.5
   min_peak_dist: 10000
   before_R: 1000
