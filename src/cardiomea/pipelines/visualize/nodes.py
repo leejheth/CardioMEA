@@ -315,7 +315,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
         df_filtered = df_selected[features]
 
         # plot correlation map using plotly
-        corr = df_filtered.corr()
+        corr = df_filtered.corr(method='spearman')
         mask = np.triu(np.ones_like(corr, dtype=bool))
         half_corr=corr.mask(mask)
         
