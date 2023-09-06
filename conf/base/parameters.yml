@@ -8,6 +8,6 @@ nCPUs: 20
 file_index: 0
 
 tablename: 
-  FP: 'fp_features_new_new'
+  FP: 'fp_features'
   AP: 'ap_features'
   FP_AP: 'fp_ap_features'
