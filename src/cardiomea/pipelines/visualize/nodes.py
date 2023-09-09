@@ -385,7 +385,7 @@ def dashboard(cardio_db_FP,cardio_db_AP,port,base_directory):
                         ),
                     ]),
                     dbc.Col([
-                        html.H5("Test size (%)"),
+                        html.H5("Test size"),
                         dbc.Input(id='test_size', type="number", min=1, max=50, step=1, value=20),
                     ]),
                     dbc.Col([
