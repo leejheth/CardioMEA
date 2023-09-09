@@ -238,7 +238,7 @@ def extract_AP_features_pipeline(**kwargs) -> Pipeline:
             inputs=[
                 "signals", 
                 "params:AP_wave",
-                "electrodes_info_AP",
+                "electrodes_info",
             ],
             outputs=[
                 "AP_waves",
