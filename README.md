@@ -23,7 +23,10 @@ An open-source data pipeline to process, visualize, and analyze cardiomyocytes d
 
 ## How to setup 
 
-Prerequisite: [Conda installation](https://docs.conda.io/en/latest/miniconda.html)
+Prerequisite:
+- Python 3.9
+- GNU Make
+- Auto-sklearn is not compatible with Windows OS. To run the analysis in Windows machine, use Windows Subsystems for Linux with Ubuntu. 
 
 Clone the repository to your working directory.
 ```

@@ -17,14 +17,14 @@ kedro-telemetry~=0.2.0
 kedro-viz
 lmfit
 nbstripout~=0.4
-numpy
+numpy<2.0
 pip-tools<7.0
 psycopg2-binary
 pytest-cov~=3.0
 pytest-mock>=1.7.1, <2.0
 pytest~=7.2
 scipy
-scikit-learn
+scikit-learn<1.0
 sqlalchemy<2.0
 statsmodels
 sympy

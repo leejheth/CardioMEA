@@ -1,16 +1,17 @@
 .ONESHELL:
 .PHONY: setup
 
-DIR           := $(shell basename `pwd`)
-ENV           := cardio-env
+VENV := venv/bin
 
 setup:
-	. $(shell conda info --base)/etc/profile.d/conda.sh && \
-	conda env remove -y -n $(ENV) && \
-	conda create -y -n $(ENV) python=3.9 && \
-	conda activate $(ENV) && \
-	python -m pip install pip==23.0.1 && \
-	python -m pip install -r src/requirements.txt && \
-	echo 'PYTHONPATH=$(PWD)/src:$$PYTHONPATH' > .env && \
-	echo 'CardioMEA project setup successful.' && \
-	echo 'To activate your conda environment, run `conda activate $(ENV)`.'
+	rm -rf venv
+	python3.9 -m venv venv
+	$(VENV)/pip install -r src/requirements.txt
+
+setup_dev:
+	rm -rf venv
+	python3.9 -m venv venv
+	$(VENV)/pip install -r src/requirements.in
+
+freeze:
+	$(VENV)/pip freeze > src/requirements.txt
