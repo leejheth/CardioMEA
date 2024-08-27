@@ -8,7 +8,7 @@ import yaml
 
 bootstrap_project(Path.cwd())
 
-with open("conf/base/file_count.yml", "r") as f:
+with open("../conf/base/file_count.yml", "r") as f:
     content = yaml.safe_load(f)
 n_files = content['n_files']
 nCPUs = content['n_CPUs']

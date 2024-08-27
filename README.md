@@ -21,12 +21,13 @@ An open-source data pipeline to process, visualize, and analyze cardiomyocytes d
 ## CardioMEA Dashboard
 ![plot](https://github.com/leejheth/CardioMEA/blob/main/docs/dashboard.PNG?raw=true)
 
-## How to setup 
 
-Prerequisite:
+## Installation
+
+Prerequisites:
 - Python 3.9
 - GNU Make
-- Auto-sklearn is not compatible with Windows OS. To run the analysis in Windows machine, use Windows Subsystems for Linux with Ubuntu. 
+- Auto-sklearn, which is one of core modules for feature analysis, is not compatible with Windows OS. To run the analysis in Windows machine, use Windows Subsystems for Linux with Ubuntu ([How-to guide](https://canonical-ubuntu-wsl.readthedocs-hosted.com/en/latest/guides/install-ubuntu-wsl2/)). 
 
 Clone the repository to your working directory.
 ```
@@ -38,62 +39,49 @@ Go to the directory.
 cd CardioMEA
 ```
 
-Set up the environment. This will create a new conda environment and install all dependencies in it.
+Set up the environment. This will create a virtual environment and install all dependencies in it.
 ```
 make setup
 ```
 
-Activate the environment.
+### (Optional) How to install additional packages in the environment
+
+Add packages, which you need to install, in `src/requirements.in`. Then use the following command.
+
 ```
-conda activate cardio-env
+make setup_dev
 ```
-
-## How to install additional packages in the environment
-
-Add packages, which you need to install, in `src/requirements.in`.
-
-Compile dependencies file.
-```
-pip-compile src/requirements.in -o src/requirements.txt
-```
-
-To install them, run:
-```
-python -m pip install -r src/requirements.txt
-```
-
-## Important note for data security
-
-* Don't commit data to your repository
-* Don't commit any credentials or your local configuration to your repository. Keep all your credentials and local configuration in `conf/local/`
-
 
 ## How to run pipelines in CardioMEA
 
 ### Data processing
 
-Configure your PostgreSQL credentials data in `conf/local/credentials.yml' file (need to create a new file) in the following format:
+1. Database
+
+CardioMEA processes raw data and store the extracted features to [PostgreSQL](https://www.postgresql.org/) database. Create a file `conf/local/postgresql.txt` and store PostgreSQL credentials in each line as follows.
 
 ```
-db_credentials:
-  con: postgresql://(user):(password)@(host):(port)/(dbname)
+host 
+DB-name 
+user-name 
+password 
+port
 ```
 
-Also create and add credentials in `conf/local/postgresql.txt' file in the following format: host, dbname, user, password, port in each line.
+2. Raw data
 
-Configure base_directory of your recording files, file extension, and the number CPUs to use for parallelize processing in `conf/base/parameters.yml`.
+Specify the directory of your recording files, file extension, and the number of CPUs to use for parallelize processing in `conf/base/parameters.yml`.
 
-List all directories, where recording files are stored, in file `data/01_raw/catalog.csv`. 
-The following commmand will create another file `data/01_raw/catalog_full.csv` and list full paths of all recording files found in the specified directories. Refer to `conf/base/catalog.yml`.
-
-```
-kedro run -p list_rec_files
-```
-
-Run parallelized (or single core) processing by running the following command.
+List all raw recording files to be processed in `data/01_raw/catalog.csv`. Then run the following command.
 
 ```
-python parallel_run.py
+make create_list
+```
+
+3. Run data processing
+
+```
+make process
 ```
 
 ### Interactive data visualization and analysis
@@ -101,6 +89,30 @@ python parallel_run.py
 To open the CardioMEA Dashboard, run the following command.
 
 ```
-kedro run -p dashboard
+make vis
 ```
 
+## Important note for data security
+
+* Don't commit data to your repository
+* Don't commit any credentials or your local configuration to your repository. Keep all your credentials and local configuration in `conf/local/`
+
+## Troubleshooting
+
+### Installation
+| Issue | Solution |
+| ------- |  -------  | 
+| The program 'make' is currently not installed. | For simplicity of usage, CardioMEA uses make commands. Please install GNU Make. |    
+| Error while installing Auto-sklearn: "Detected unsupported operating system: win32" | Auto-sklearn is not supported in Windows machine. Use UNIX system or WSL. |
+| Command 'x86_64-linux-gnu-gcc' failed | Run the following: sudo apt-get install build-essential python3.9-dev|
+
+### Data processing
+| Issue | Solution |
+| ------- |  -------  | 
+|   |    |  
+
+### Dashboard
+| Issue | Solution |
+| ------- | ------- | 
+| Port is in use | Replace the web_port number in "conf/base/parameters/visualize.yml" to another one, such as 8056, 8057, etc. |  
+| psycopg2 OperationError "Could not translate host name 'X.X.X' to address" | The database host you specified in 'conf/local/postgresql.txt' could not be found. Double check if the host address is correct. |
