@@ -44,9 +44,7 @@ Set up the environment. This will create a virtual environment and install all d
 make setup
 ```
 
-### (Optional) How to install additional packages in the environment
-
-Add packages, which you need to install, in `src/requirements.in`. Then use the following command.
+(Optional) If you want to install more packages, add them to `src/requirements.in`. Then use the following command to reinstall the virtual environment.
 
 ```
 make setup_dev
@@ -105,11 +103,12 @@ make vis
 | The program 'make' is currently not installed. | For simplicity of usage, CardioMEA uses make commands. Please install GNU Make. |    
 | Error while installing Auto-sklearn: "Detected unsupported operating system: win32" | Auto-sklearn is not supported in Windows machine. Use UNIX system or WSL. |
 | Command 'x86_64-linux-gnu-gcc' failed | Run the following: sudo apt-get install build-essential python3.9-dev|
+| "make setup" works fine, but "make setup_dev" raises error messages | The package you added to `src/requirements.in` may not be compatible with other packages that are already listed in the requirement file. Consider replacing it with another package. |
 
 ### Data processing
 | Issue | Solution |
 | ------- |  -------  | 
-|   |    |  
+| venv/bin/python: not found | Make sure that the virtual environment is created in the project directory (directory name: venv) and the installation step was completed without error messages. |  
 
 ### Dashboard
 | Issue | Solution |
