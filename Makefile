@@ -25,9 +25,13 @@ freeze:
 create_list:
 	$(VENV)/kedro run -p list_rec_files
 
-process:
+extracellular:
 	$(VENV)/python scripts/create_local_config.py
-	$(VENV)/python scripts/parallel_run.py
+	$(VENV)/python scripts/parallel_run.py --pipeline extracellular
+
+intracellular:
+	$(VENV)/python scripts/create_local_config.py
+	$(VENV)/python scripts/parallel_run.py --pipeline intracellular
 
 ################################
 # Data visualization and analysis

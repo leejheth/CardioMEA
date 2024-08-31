@@ -5,6 +5,14 @@ from kedro.runner import SequentialRunner
 from pathlib import Path
 import datetime
 import yaml
+import argparse
+
+# Parse command line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument("-p", "--pipeline", type=str, help="Data processing pipeline to run (intracellular or extracellular)", required=True)
+args = parser.parse_args()
+
+assert args.process in ["intracellular", "extracellular"], "Invalid pipeline argument. Please use 'intracellular' or 'extracellular'."
 
 bootstrap_project(Path.cwd())
 
@@ -16,7 +24,7 @@ nCPUs = content['n_CPUs']
 def run_pipeline(index):    
     try: 
         session = KedroSession.create(extra_params={"file_index": index})
-        session.run(pipeline_name="extra_pipeline", runner=SequentialRunner()) # for intracellular recordings, use pipeline_name="intra_pipeline" instead.
+        session.run(pipeline_name=args.process, runner=SequentialRunner()) # for intracellular recordings, use pipeline_name="intra_pipeline" instead.
     except Exception:
         print(f"Error while running the pipeline with file index {index}. Skipped.")
 

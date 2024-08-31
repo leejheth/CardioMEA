@@ -23,8 +23,8 @@ def register_pipelines() -> Dict[str, Pipeline]:
     return {
         "__default__": list_rec_files_pipeline(),
         "list_rec_files": list_rec_files_pipeline(),
-        "extra_pipeline": create_single_pipeline(),
-        "intra_pipeline": extract_AP_features_pipeline(),
+        "extracellular": create_single_pipeline(),
+        "intracellular": extract_AP_features_pipeline(),
         "dashboard": create_dashboard_pipeline(),
         "FP_AP_pipeline": extract_FP_AP_features_pipeline(),
     }

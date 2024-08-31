@@ -76,10 +76,12 @@ List all raw recording files to be processed in `data/01_raw/catalog.csv`. Then 
 make create_list
 ```
 
-3. Run data processing
+3. Run extracellular data processing
+
+To run intracellular data processing, replace `extracellular` with `intracellular` in the command below.
 
 ```
-make process
+make extracellular
 ```
 
 ### Interactive data visualization and analysis
