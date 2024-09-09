@@ -37,4 +37,5 @@ intracellular:
 # Data visualization and analysis
 ################################
 vis:
+	$(VENV)/python scripts/create_local_config.py
 	$(VENV)/kedro run -p dashboard
