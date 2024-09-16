@@ -12,11 +12,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-p", "--pipeline", type=str, help="Data processing pipeline to run (intracellular or extracellular)", required=True)
 args = parser.parse_args()
 
-assert args.process in ["intracellular", "extracellular"], "Invalid pipeline argument. Please use 'intracellular' or 'extracellular'."
+assert args.pipeline in ["intracellular", "extracellular"], "Invalid pipeline argument. Please use 'intracellular' or 'extracellular'."
 
 bootstrap_project(Path.cwd())
 
-with open("../conf/base/file_count.yml", "r") as f:
+with open("conf/base/file_count.yml", "r") as f:
     content = yaml.safe_load(f)
 n_files = content['n_files']
 nCPUs = content['n_CPUs']
@@ -24,7 +24,7 @@ nCPUs = content['n_CPUs']
 def run_pipeline(index):    
     try: 
         session = KedroSession.create(extra_params={"file_index": index})
-        session.run(pipeline_name=args.process, runner=SequentialRunner()) # for intracellular recordings, use pipeline_name="intra_pipeline" instead.
+        session.run(pipeline_name=args.pipeline, runner=SequentialRunner()) # for intracellular recordings, use pipeline_name="intra_pipeline" instead.
     except Exception:
         print(f"Error while running the pipeline with file index {index}. Skipped.")
 

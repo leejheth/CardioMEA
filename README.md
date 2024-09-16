@@ -76,7 +76,7 @@ List all raw recording files to be processed in `data/01_raw/catalog.csv`. Then 
 make create_list
 ```
 
-3. Run extracellular data processing
+3. Run extracellular and intracellular data processing
 
 To run intracellular data processing, replace `extracellular` with `intracellular` in the command below.
 
@@ -105,15 +105,18 @@ make vis
 | The program 'make' is currently not installed. | For simplicity of usage, CardioMEA uses make commands. Please install GNU Make. |    
 | Error while installing Auto-sklearn: "Detected unsupported operating system: win32" | Auto-sklearn is not supported in Windows machine. Use UNIX system or WSL. |
 | Command 'x86_64-linux-gnu-gcc' failed | Run the following: sudo apt-get install build-essential python3.9-dev|
+| The virtual environment could not be created | Install python3-venv package: sudo apt install python3.9-venv |
 | "make setup" works fine, but "make setup_dev" raises error messages | The package you added to `src/requirements.in` may not be compatible with other packages that are already listed in the requirement file. Consider replacing it with another package. |
 
 ### Data processing
 | Issue | Solution |
 | ------- |  -------  | 
 | venv/bin/python: not found | Make sure that the virtual environment is created in the project directory (directory name: venv) and the installation step was completed without error messages. |  
+| SQL connection error | Make sure you provided the correct connection data to the PostgreSQL database in `conf/local/postgresql.txt` (see [How to run pipelines in CardioMEA](#how-to-run-pipelines-in-cardiomea)). |
 
 ### Dashboard
 | Issue | Solution |
 | ------- | ------- | 
-| Port is in use | Replace the web_port number in "conf/base/parameters/visualize.yml" to another one, such as 8056, 8057, etc. |  
-| psycopg2 OperationError "Could not translate host name 'X.X.X' to address" | The database host you specified in 'conf/local/postgresql.txt' could not be found. Double check if the host address is correct. |
+| Port is in use | The current port number (8055) appears to be occupied by another application on your PC. Replace the web_port number in `conf/base/parameters/visualize.yml` to another one, such as 8056, 8057, etc. |  
+| psycopg2 OperationError "Could not translate host name 'X.X.X' to address" | The database host you specified in `conf/local/postgresql.txt` could not be found. Double check if the host address is correct. |
+| The Web UI on the dashboard is not responding | Depending on the PC resources, the Web UI may be slow. When "Updating..." appears on the browser tab, it indicates the dashboard is processing your input. |
