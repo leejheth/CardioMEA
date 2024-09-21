@@ -113,6 +113,7 @@ make vis
 | ------- |  -------  | 
 | venv/bin/python: not found | Make sure that the virtual environment is created in the project directory (directory name: venv) and the installation step was completed without error messages. |  
 | SQL connection error | Make sure you provided the correct connection data to the PostgreSQL database in `conf/local/postgresql.txt` (see [How to run pipelines in CardioMEA](#how-to-run-pipelines-in-cardiomea)). |
+| KeyError: 'file_path' when creating a list of recording files (`make create_list`) | This could happen when the separator in the `catalog.csv` file is not ";" anymore, after you modified this CSV file. Either convert the separator back to ";" in the CSV file or go to `conf/base/catalog.yml` and specify the separator that you used in the CSV file. |
 
 ### Dashboard
 | Issue | Solution |
