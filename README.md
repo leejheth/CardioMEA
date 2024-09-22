@@ -29,6 +29,8 @@ Prerequisites:
 - GNU Make
 - Auto-sklearn, which is one of core modules for feature analysis, is not compatible with Windows OS. To run the analysis in Windows machine, use Windows Subsystems for Linux with Ubuntu ([How-to guide](https://canonical-ubuntu-wsl.readthedocs-hosted.com/en/latest/guides/install-ubuntu-wsl2/)). 
 
+The CardioMEA was tested on Windows 10 & 11 (Windows Subsystem for Linux) and Ubuntu 20.04 on a Linux machine.
+
 Clone the repository to your working directory.
 ```
 git clone git@github.com:leejheth/CardioMEA.git
@@ -94,8 +96,8 @@ make vis
 
 ## Important note for data security
 
-* Don't commit data to your repository
-* Don't commit any credentials or your local configuration to your repository. Keep all your credentials and local configuration in `conf/local/`
+* Don't commit data to the repository
+* Don't commit any credentials or your local configuration to the repository. Keep all your credentials and local configuration in `conf/local/`
 
 ## Troubleshooting
 
