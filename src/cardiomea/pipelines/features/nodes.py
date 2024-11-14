@@ -189,32 +189,33 @@ def get_R_timestamps(signals,electrodes_info,mult_factor,min_peak_dist,s_freq):
     """
     # build a butterworth filter of order: 3, bandwidth: 100-2000Hz, bandpass
     b, a = signal.butter(3,[100*2/s_freq,2000*2/s_freq],btype='band')
-    # apply a digital filter
-    filtered = signal.filtfilt(b, a, signals) 
 
-    channelIDs = [ch for ch in range(len(signals))]
+    n_channels = signals.shape[0]
+    n_Rpeaks = []
+    r_timestamps = []
+    for ch in range(n_channels):
+        # Apply the filter to the signal of the current channel
+        filtered_ch = signal.filtfilt(b, a, signals[ch])
 
-    n_Rpeaks=[]
-    r_timestamps=[]
-    for ch in channelIDs:
-        n_r_locs, r_locs = _R_timestamps(filtered[ch],mult_factor,min_peak_dist)
-        n_Rpeaks.append(n_r_locs)
+        r_locs = _R_timestamps(filtered_ch, mult_factor, min_peak_dist)
+        n_Rpeaks.append(len(r_locs))
         r_timestamps.append(r_locs)
-
-    # identify synchronous beats
+    
+    # Identify synchronous beats
     sync_beats = st.mode(n_Rpeaks)
-    # indices of channels where beats (R peaks) are synchronous
-    ind_sync_channels = [ind for ind,peaks in enumerate(n_Rpeaks) if peaks==sync_beats]
-    sync_timestamps = [r_timestamps[i] for i in ind_sync_channels]
-    sync_channelIDs = [channelIDs[i] for i in ind_sync_channels]
+    # Indices of channels where beats (R peaks) are synchronous
+    sync_channelIDs = [i for i, n_peaks in enumerate(n_Rpeaks) if n_peaks == sync_beats]
 
-    # update electrodes info (updated data contains only channels that captured synchronous beatings)
-    electrodes_info_updated = dict([
-        ("electrode_ids", [electrodes_info['electrode_ids'][i] for i in ind_sync_channels]),
-        ("x_locs", [electrodes_info['x_locs'][i] for i in ind_sync_channels]),
-        ("y_locs", [electrodes_info['y_locs'][i] for i in ind_sync_channels]),
-        ("num_channels", len(ind_sync_channels))
-    ])
+    # Extract r_locs for synchronous channels
+    sync_timestamps = [r_timestamps[i] for i in sync_channelIDs]
+    
+    # Update electrodes info (contains only channels that captured synchronous beatings)
+    electrodes_info_updated = {
+        "electrode_ids": [electrodes_info['electrode_ids'][i] for i in sync_channelIDs],
+        "x_locs": [electrodes_info['x_locs'][i] for i in sync_channelIDs],
+        "y_locs": [electrodes_info['y_locs'][i] for i in sync_channelIDs],
+        "num_channels": len(sync_channelIDs)
+    }
 
     return sync_timestamps, sync_channelIDs, electrodes_info_updated
 
@@ -224,7 +225,7 @@ def _R_timestamps(signal_single,mult_factor,min_peak_dist):
     thr = mult_factor*np.std(signal_single)
     r_locs, _ = find_peaks(signal_single, distance=min_peak_dist, prominence=thr)
 
-    return len(r_locs), r_locs
+    return r_locs
   
 
 def get_active_area(electrodes_info, sync_channelIDs):
