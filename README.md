@@ -4,6 +4,8 @@
 
 An open-source data pipeline to process, visualize, and analyze cardiomyocytes data recorded by HD-MEAs.
 
+The related work is published in Frontiers in Physiology. [Link to the article](https://doi.org/10.3389/fphys.2024.1472126)
+
 ## Key features
 * Efficient data processing 
   * The pipelines are coded in modular structure ([Kedro](https://kedro.org/) framework), which makes the pipeline easily understandable and modifiable.
